@@ -893,6 +893,8 @@ function getDashboardStats() {
   const santriSheet = getSheet('Santri');
   const musammiSheet = getSheet('Musammi');
   const halaqahSheet = getSheet('Halaqah');
+  const absensiSantriSheet = getSheet('AbsensiSantri');
+  const hafalanSheet = getSheet('HafalanBulanan');
   
   const santriData = santriSheet.getDataRange().getValues().slice(1);
   const musammiData = musammiSheet.getDataRange().getValues().slice(1);
@@ -909,6 +911,61 @@ function getDashboardStats() {
   const musammiHalaqahAliyah = halaqahData.filter(h => h[2] === 'ALI').length;
   const musammiHalaqahMutawassitoh = halaqahData.filter(h => h[2] === 'MUT').length;
   
+  // Get today's date in format YYYY-MM-DD
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const absensiData = absensiSantriSheet.getDataRange().getValues().slice(1);
+  const todayAbsensi = absensiData.filter(a => a[1] === today);
+  
+  const absensiHariIni = {
+    hadir: todayAbsensi.filter(a => a[3] === 'HADIR').length,
+    sakit: todayAbsensi.filter(a => a[3] === 'SAKIT').length,
+    izin: todayAbsensi.filter(a => a[3] === 'IZIN').length,
+    alpa: todayAbsensi.filter(a => a[3] === 'ALPA').length,
+    terlambat: todayAbsensi.filter(a => a[3] === 'TERLAMBAT').length
+  };
+  
+  // Get hafalan data for last 4 months
+  const hafalanData = hafalanSheet.getDataRange().getValues().slice(1);
+  const monthlyHafalan = {};
+  
+  hafalanData.forEach(row => {
+    const bulan = row[1]; // Bulan (format: YYYY-MM)
+    const marhalah = row[4]; // MarhalahID
+    const juz = parseFloat(row[7]); // JumlahHafalan
+    
+    // Skip if bulan or juz is invalid
+    if (!bulan || isNaN(juz)) return;
+    
+    if (!monthlyHafalan[bulan]) {
+      monthlyHafalan[bulan] = { mut: [], ali: [] };
+    }
+    
+    if (marhalah === 'MUT') {
+      monthlyHafalan[bulan].mut.push(juz);
+    } else if (marhalah === 'ALI') {
+      monthlyHafalan[bulan].ali.push(juz);
+    }
+  });
+  
+  // Sort months chronologically and get last 4
+  const sortedMonths = Object.keys(monthlyHafalan).sort();
+  const last4Months = sortedMonths.slice(-4);
+  
+  const hafalanBulanIni = last4Months.map(bulan => {
+    const mutValues = monthlyHafalan[bulan].mut.filter(v => !isNaN(v) && v > 0);
+    const aliValues = monthlyHafalan[bulan].ali.filter(v => !isNaN(v) && v > 0);
+    
+    return {
+      bulan: bulan,
+      rataMutawassitoh: mutValues.length > 0 
+        ? mutValues.reduce((a, b) => a + b, 0) / mutValues.length 
+        : 0,
+      rataAliyah: aliValues.length > 0 
+        ? aliValues.reduce((a, b) => a + b, 0) / aliValues.length 
+        : 0
+    };
+  });
+  
   return {
     totalSantri,
     santriMutawassitoh,
@@ -917,7 +974,9 @@ function getDashboardStats() {
     musammiAliyah,
     musammiJamii,
     musammiHalaqahAliyah,
-    musammiHalaqahMutawassitoh
+    musammiHalaqahMutawassitoh,
+    absensiHariIni,
+    hafalanBulanIni
   };
 }
 

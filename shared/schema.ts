@@ -231,6 +231,18 @@ export const dashboardStatsSchema = z.object({
   musammiJamii: z.number(),
   musammiHalaqahAliyah: z.number(),
   musammiHalaqahMutawassitoh: z.number(),
+  absensiHariIni: z.object({
+    hadir: z.number(),
+    sakit: z.number(),
+    izin: z.number(),
+    alpa: z.number(),
+    terlambat: z.number(),
+  }),
+  hafalanBulanIni: z.array(z.object({
+    bulan: z.string(),
+    rataMutawassitoh: z.number(),
+    rataAliyah: z.number(),
+  })),
 });
 
 export type DashboardStats = z.infer<typeof dashboardStatsSchema>;
