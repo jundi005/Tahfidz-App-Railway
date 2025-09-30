@@ -64,11 +64,13 @@ export interface IStorage {
   getHafalanBulanan(bulan: string, marhalahId?: string): Promise<HafalanBulanan[]>;
   createHafalanBulanan(hafalan: InsertHafalanBulanan): Promise<HafalanBulanan>;
   updateHafalanBulanan(id: string, hafalan: Partial<InsertHafalanBulanan>): Promise<HafalanBulanan>;
+  deleteHafalanBulanan(id: string): Promise<void>;
 
   // Murojaah
   getMurojaahBulanan(bulan: string, marhalahId?: string): Promise<MurojaahBulanan[]>;
   createMurojaahBulanan(murojaah: InsertMurojaahBulanan): Promise<MurojaahBulanan>;
   updateMurojaahBulanan(id: string, murojaah: Partial<InsertMurojaahBulanan>): Promise<MurojaahBulanan>;
+  deleteMurojaahBulanan(id: string): Promise<void>;
 
   // Penambahan Hafalan
   createPenambahanHafalan(penambahan: InsertPenambahanHafalan): Promise<PenambahanHafalan>;
@@ -101,21 +103,23 @@ export class GoogleSheetsStorage implements IStorage {
       },
     });
 
-    // Handle 404 for methods that return optional values
-    if (response.status === 404 && options?.allowUndefined) {
+    // Google Apps Script always returns 200 OK, error info is in JSON body
+    const data = await response.json();
+
+    // Google Apps Script returns { error, code } for errors
+    if (data && typeof data === 'object' && 'error' in data) {
+      if (data.code === 404 && options?.allowUndefined) {
+        return undefined as T;
+      }
+      throw new Error(data.error);
+    }
+
+    // Google Apps Script returns { success, message } for DELETE operations
+    if (data && typeof data === 'object' && 'success' in data && data.success) {
       return undefined as T;
     }
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    // Handle 204 No Content (DELETE operations)
-    if (response.status === 204 || response.headers.get('content-length') === '0') {
-      return undefined as T;
-    }
-
-    return response.json();
+    return data;
   }
 
   async getLookups(): Promise<LookupsResponse> {
@@ -269,6 +273,10 @@ export class GoogleSheetsStorage implements IStorage {
     });
   }
 
+  async deleteHafalanBulanan(id: string): Promise<void> {
+    await this.request(`/hafalan/${id}`, { method: 'DELETE' });
+  }
+
   async getMurojaahBulanan(bulan: string, marhalahId?: string): Promise<MurojaahBulanan[]> {
     const params = new URLSearchParams({ bulan });
     if (marhalahId) params.append('marhalah', marhalahId);
@@ -287,6 +295,10 @@ export class GoogleSheetsStorage implements IStorage {
       method: 'PUT',
       body: JSON.stringify(murojaah),
     });
+  }
+
+  async deleteMurojaahBulanan(id: string): Promise<void> {
+    await this.request(`/murojaah/${id}`, { method: 'DELETE' });
   }
 
   async createPenambahanHafalan(penambahan: InsertPenambahanHafalan): Promise<PenambahanHafalan> {
