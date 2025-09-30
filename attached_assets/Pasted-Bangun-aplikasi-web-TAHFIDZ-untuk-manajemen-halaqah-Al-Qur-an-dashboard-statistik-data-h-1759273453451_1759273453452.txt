@@ -1,0 +1,292 @@
+Bangun aplikasi web **TAHFIDZ** untuk manajemen halaqah Al-Qur’an: **dashboard statistik**, **data halaqah**, **absensi halaqah (musammi & santri)**, **rekap perkembangan hafalan/murojaah per bulan**, dan **kalender & tugas**.
+
+Database utama: **Google Spreadsheet** (akses via **Google Apps Script Web App**). Tema **hitam/putih**, UI **simple–modern–profesional–responsif**. Semua fitur **CRUD**.
+
+## 1) Platform & Arsitektur
+
+- **Frontend**: React (Vite/Next.js bebas), komponen tabel + form + chart.
+- **Grafik**: Chart.js atau Recharts.
+- **Backend**: Google Apps Script (GAS) sebagai **REST Web App** (doGet/doPost) → CRUD ke Google Spreadsheet.
+- **Auth (opsional)**: Basic (token header) atau tanpa auth (sesuai kebutuhan awal).
+- **Hosting**: Replit Deploy (boleh tambahkan custom domain).
+- **Bahasa UI**: Indonesia.
+- **Bahasa interaksi dengan Replit Agent**: Indonesia.
+
+## 2) Peran Pengguna (MVP)
+
+- **Admin (Lajnah)**: Kelola master data, absensi, hafalan, tugas, lihat dashboard.
+- **Musammi**: Input absensi, lihat daftar santri & progres.
+    
+    *(Akses peran dapat disederhanakan dulu pada MVP; granular auth bisa ditambahkan belakangan.)*
+    
+
+## 3) Halaman & Fitur
+
+### A. Dashboard
+
+- Welcome text: **“Welcome to TAHFIDZ Software”** + deskripsi singkat.
+- **Statistik angka**:
+    - Jumlah santri (total), santri Mutawassitoh, santri Aliyah.
+    - Jumlah semua musammi; musammi marhalah Aliyah; musammi marhalah Jamii; musammi halaqah Aliyah; musammi halaqah Mutawassitoh.
+- **Chart batang** (terbaru): distribusi status **Hadir/Sakit/Izin/Alpa/Terlambat** (gabungan santri + musammi; bisa toggle).
+- **Line chart**: **rata-rata hafalan santri** per bulan (dibagi **Mutawassitoh** & **Aliyah**).
+- **Chart batang kumulatif**: persentase kehadiran **Shubuh/Ashar/Isya** (periode kumulatif).
+- **Tasks belum selesai (Open)**: daftar ringkas & tautan cepat.
+
+### B. Data Halaqah
+
+- Tabel gabungan: **Nama santri | Kelas | Marhalah | Nomor urut halaqah | Nama musammi (pengampu) | Marhalah musammi | Kelas musammi | Jumlah hafalan santri**.
+- Aksi CRUD: Halaqah, Musammi, Santri, HalaqahMembers (keanggotaan).
+
+### C. Absensi Halaqah
+
+- Filter: **Marhalah (Mutawassitoh/Aliyah)**, **Waktu (Shubuh/Ashar/Isya)**, **Tanggal (default: hari ini)**.
+- Tampilkan **semua halaqah** pada marhalah terpilih, tiap halaqah tampil:
+    - **Musammi (+ kelas)** dan **daftar santri (+ kelas)**.
+    - Di kanan tiap baris (musammi & santri): radio **Hadir (default), Sakit, Izin, Alpa, Terlambat**.
+- Tombol **Submit Absensi** → simpan batch ke Spreadsheet (AbsensiMusammi & AbsensiSantri).
+
+### D. Perkembangan Santri
+
+- **Data Hafalan Bulanan** (kumulatif per bulan, format **juz**).
+- **Murojaah Bulanan** (format **juz**).
+- **Penambahan Hafalan** (format **halaman**) → **otomatis menambah** Hafalan Bulanan (konversi halaman→juz, default 20 hlm = 1 juz).
+- Semua form terhubung ke data santri/halaqah (lookup dari master).
+
+### E. Kalender & Tasks
+
+- Kalender masehi.
+- Tasks: input judul, deskripsi, tanggal, reminder (opsional), assignee (Admin/Musammi), status (Open/Done), prioritas.
+- **Tasks Open** muncul di Dashboard.
+
+## 4) Desain & UX
+
+- Tema **Hitam/Putih**; tipografi bersih; tabel dengan sticky header, pencarian, pagination.
+- Komponen: Cards untuk statistik; Alerts untuk validasi; Modal untuk CRUD.
+- Responsif: mobile-first; grid yang rapi.
+
+---
+
+## 5) **Skema Spreadsheet (Master)** — Wajib Dipakai
+
+> Semua nama sheet & kolom sesuai persis di bawah. ENUM & relasi divalidasi di GAS.
+> 
+> 
+> Format tanggal: `YYYY-MM-DD`. Format bulan: `YYYY-MM`.
+> 
+
+### 5.1 Lookups_Marhalah
+
+- `MarhalahID` **PK**: `MUT`, `ALI`, `JAM`
+- `NamaMarhalah`: `Mutawassitoh`, `Aliyah`, `Jamii`
+
+### 5.2 Lookups_Waktu
+
+- `WaktuID` **PK**: `SUBUH`, `ASHAR`, `ISYA`
+- `NamaWaktu`: `Shubuh`, `Ashar`, `Isya`
+
+### 5.3 Lookups_Kehadiran
+
+- `StatusID` **PK**: `HADIR`, `SAKIT`, `IZIN`, `ALPA`, `TERLAMBAT`
+- `NamaStatus`: label human-readable
+
+### 5.4 Lookups_Kelas
+
+- `MarhalahID` **FK → Lookups_Marhalah.MarhalahID**
+- `Kelas`
+    - **Aliyah**: `1A, 1B, 1C, 2A, 2B, 3A, 3B`
+    - **Mutawassitoh**: `1A, 1B, 1D, 2A, 2B, 3A, 3B`
+    - **Jamii (untuk musammi)**: `TQS, KHS, KS`
+
+### 5.5 Musammi
+
+- `MusammiID` **PK**
+- `NamaMusammi`
+- `MarhalahID` **FK → Lookups_Marhalah**
+- `KelasMusammi` **(validasi via Lookups_Kelas + MarhalahID)**
+- `Catatan`
+
+### 5.6 Halaqah
+
+- `HalaqahID` **PK**
+- `NomorUrutHalaqah` *(unik per MarhalahID, misal 1..40 MUT; 1..30 ALI)*
+- `MarhalahID` **FK**
+- `MusammiID` **FK → Musammi**
+- `KelasMusammi` *(mirror untuk filter cepat; sinkron dengan Musammi.KelasMusammi)*
+- `NamaHalaqah` *(opsional, untuk UI)*
+
+### 5.7 Santri
+
+- `SantriID` **PK**
+- `NamaSantri`
+- `MarhalahID` **FK → Lookups_Marhalah**
+- `Kelas` **(validasi via Lookups_Kelas + MarhalahID)**
+- `Aktif` *(TRUE/FALSE)*
+
+### 5.8 HalaqahMembers
+
+- `HalaqahID` **FK → Halaqah**
+- `SantriID` **FK → Santri**
+- `TanggalMulai` *(YYYY-MM-DD)*
+- `TanggalSelesai` *(opsional; kosong = masih aktif)*
+    
+    **Aturan:** satu **Santri** hanya boleh **aktif di 1 Halaqah** pada saat yang sama (`TanggalSelesai` kosong).
+    
+
+### 5.9 AbsensiSantri
+
+- `AbsensiSantriID` **PK**
+- `Tanggal` *(YYYY-MM-DD)*
+- `MarhalahID` **FK**
+- `WaktuID` **FK (`SUBUH/ASHAR/ISYA`)**
+- `HalaqahID` **FK**
+- `SantriID` **FK**
+- `StatusID` **FK (`HADIR/SAKIT/IZIN/ALPA/TERLAMBAT`)** *(default `HADIR`)*
+- `Keterangan`
+
+### 5.10 AbsensiMusammi
+
+- `AbsensiMusammiID` **PK**
+- `Tanggal` *(YYYY-MM-DD)*
+- `MarhalahID` **FK**
+- `WaktuID` **FK**
+- `HalaqahID` **FK**
+- `MusammiID` **FK**
+- `StatusID` **FK** *(default `HADIR`)*
+- `Keterangan`
+
+### 5.11 HafalanBulanan
+
+- `RekapID` **PK**
+- `Bulan(YYYY-MM)`
+- `SantriID` **FK**
+- `HalaqahID` **FK**
+- `MarhalahID` **FK**
+- `Kelas`
+- `MusammiID` **FK**
+- `JumlahHafalan(Juz)` *(desimal; **kumulatif** untuk bulan tsb)*
+
+### 5.12 MurojaahBulanan
+
+- `MurojaahID` **PK**
+- `Bulan(YYYY-MM)`
+- `SantriID` **FK**
+- `HalaqahID` **FK**
+- `MarhalahID` **FK**
+- `Kelas`
+- `MusammiID` **FK**
+- `JumlahMurojaah(Juz)` *(desimal)*
+
+### 5.13 PenambahanHafalan
+
+- `PenambahanID` **PK**
+- `Bulan(YYYY-MM)` *(bulan akuntansi)*
+- `SantriID` **FK**
+- `HalaqahID` **FK**
+- `MarhalahID` **FK**
+- `Kelas`
+- `MusammiID` **FK**
+- `JumlahPenambahan(Halaman)` *(integer)*
+- `Catatan`
+    
+    **Otomasi:** setiap **create** → tambah ke `HafalanBulanan.JumlahHafalan(Juz)` sebesar `(JumlahPenambahan(Halaman)/HALAMAN_PER_JUZ)`. Jika (SantriID+Bulan) belum ada di `HafalanBulanan`, **buat baru**. **Konstanta**: `HALAMAN_PER_JUZ = 20` (buat configurable di GAS).
+    
+
+### 5.14 Tasks
+
+- `TaskID` **PK**
+- `Judul`
+- `Deskripsi`
+- `Tanggal(YYYY-MM-DD)`
+- `WaktuPengingat(HH:MM)` *(opsional)*
+- `AssigneeType` *(`Admin`/`Musammi`)*
+- `AssigneeID` *(kosong jika Admin, isi `MusammiID` jika Musammi)*
+- `Status` *(`Open`/`Done`, default `Open`)*
+- `Priority` *(`Low`/`Med`/`High`)*
+
+### 5.15 DashboardCache *(opsional, untuk caching agregasi)*
+
+- `Kunci`
+- `Nilai`
+- `TerakhirDiperbarui(ISO)`
+- `Catatan`
+
+---
+
+## 6) Aturan Bisnis & Validasi
+
+1. **Absensi** dilakukan untuk **semua halaqah** pada tiga waktu: **SUBUH/ASHAR/ISYA** (tidak ada halaqah yang hanya 1 waktu). **Default status = HADIR**.
+2. **Konsistensi Kelas & Marhalah**:
+    - `Santri.Kelas` valid terhadap `Lookups_Kelas` untuk `Santri.MarhalahID`.
+    - `Musammi.KelasMusammi` valid terhadap `Lookups_Kelas` untuk `Musammi.MarhalahID`.
+3. **Keanggotaan Santri**: tidak boleh ada dua keanggotaan aktif bersamaan (cek `HalaqahMembers` `TanggalSelesai` kosong).
+4. **HafalanBulanan** bersifat **kumulatif** per bulan; **PenambahanHafalan** meng-update otomatis.
+5. **Tasks Open** (tanggal ≤ hari ini atau mendatang) tampil di Dashboard.
+
+---
+
+## 7) Endpoints Google Apps Script (Web App)
+
+Buat Web App dengan path & aksi berikut (JSON in/out):
+
+- `GET /lookups` → `{ marhalah[], waktu[], kehadiran[], kelas[] }`
+- `GET /halaqah?marhalah=ALI` → daftar halaqah (+ musammi ringkas)
+- `GET /halaqah/:id`
+- `POST /halaqah` (create), `PUT /halaqah/:id`, `DELETE /halaqah/:id`
+- `GET /musammi?marhalah=JAM` … CRUD sama pola
+- `GET /santri?marhalah=MUT&aktif=true` … CRUD sama pola
+- `GET /halaqah-members?halaqahId=…` … CRUD sama pola
+- `POST /absensi/batch`
+    
+    Body: `{ tanggal, marhalahId, waktuId, musammi: [{halaqahId, musammiId, statusId, ket}], santri: [{halaqahId, santriId, statusId, ket}] }`
+    
+    → tulis ke `AbsensiMusammi` & `AbsensiSantri`.
+    
+- `GET /hafalan?bulan=2025-09&marhalah=ALI` … CRUD `HafalanBulanan`
+- `GET /murojaah?bulan=…` … CRUD `MurojaahBulanan`
+- `POST /penambahan` → tulis `PenambahanHafalan` **dan** update `HafalanBulanan` (otomasi konversi).
+- `GET /tasks?status=Open` … CRUD `Tasks`
+
+**Validasi server-side**: semua FK & ENUM via sheet Lookups; cegah keanggotaan ganda aktif; konversi halaman→juz pada `/penambahan`.
+
+---
+
+## 8) Logika Dashboard (Query/Data)
+
+- **Stat santri/musammi**: hitung dari `Santri`, `Musammi`, `Halaqah` (filter per marhalah).
+- **Chart kehadiran terakhir**: ambil **tanggal terbaru** di `AbsensiSantri` (dan/atau `AbsensiMusammi`), group by `StatusID`.
+- **Line chart rata-rata hafalan**: agregasi `HafalanBulanan` → rata-rata `JumlahHafalan(Juz)` per `Bulan` dan per `MarhalahID`.
+- **Bar kumulatif kehadiran Shubuh/Ashar/Isya**: persentase `HADIR` dari seluruh absensi (periode dapat diatur; mulai dari 30 hari terakhir, configurable).
+- **Tasks Open**: `Tasks.Status=Open`, urutkan naik berdasarkan `Tanggal`.
+
+---
+
+## 9) UI Komponen Kunci
+
+- **Absensi**: tabel berkelompok per halaqah; radio status per baris; tombol “Tandai Semua Hadir”.
+- **Perkembangan**: 3 tab (Hafalan Bulanan, Murojaah Bulanan, Penambahan Hafalan).
+    
+    Penambahan memicu update Hafalan Bulanan (tampilkan notifikasi hasil update).
+    
+- **Data Halaqah**: tabel gabungan dengan kolom yang diminta; quick filter marhalah/kelas.
+
+---
+
+## 10) Non-Fungsional
+
+- Responsif (mobile, tablet, desktop).
+- Loading state & error state rapi.
+- Util tanggal (dayjs/luxon) untuk format konsisten.
+- Konfigurasi **HALAMAN_PER_JUZ** di satu tempat (GAS) & expose via `/lookups` atau `/config`.
+
+---
+
+## 11) Definition of Done
+
+---
+
+- Semua halaman (Dashboard, Data Halaqah, Absensi, Perkembangan, Kalender/Tasks) **berfungsi penuh**.
+- CRUD semua entitas bekerja & terhubung ke spreadsheet.
+- Grafik menampilkan data dari sheet.
+- Validasi & aturan bisnis berjalan (termasuk konversi penambahan→hafalan).
+- Tema hitam/putih, UI clean & responsif.
