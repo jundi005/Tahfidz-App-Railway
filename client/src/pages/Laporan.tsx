@@ -8,13 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileDown, FileSpreadsheet } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { AbsensiReportResponse, LookupsResponse } from "@shared/schema";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function Laporan() {
   const [tanggal, setTanggal] = useState<string>("");
   const [marhalahId, setMarhalahId] = useState<string>("all");
   const [kelas, setKelas] = useState<string>("all");
   const [peran, setPeran] = useState<string>("all");
+  const { toast } = useToast();
 
   const { data: lookups, isLoading: isLoadingLookups } = useQuery<LookupsResponse>({
     queryKey: ['/api/lookups'],
@@ -41,11 +46,140 @@ export default function Laporan() {
   ) || [];
 
   const handleExportExcel = () => {
-    console.log("Export to Excel");
+    if (!reportData || reportData.data.length === 0) {
+      toast({
+        title: "Tidak ada data",
+        description: "Tidak ada data untuk di-export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const worksheetData = reportData.data.map((item) => ({
+      Tanggal: item.tanggal,
+      Nama: item.nama,
+      Peran: item.peran,
+      Marhalah: getMarhalahLabel(item.marhalahId),
+      Kelas: item.kelas,
+      Waktu: getWaktuLabel(item.waktuId),
+      Status: getStatusLabel(item.statusId),
+      Keterangan: item.keterangan || '-',
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(worksheetData);
+
+    const wscols = [
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 30 },
+    ];
+    ws['!cols'] = wscols;
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan Absensi');
+
+    const filterInfo = [];
+    if (tanggal) filterInfo.push(`Tanggal: ${tanggal}`);
+    if (marhalahId && marhalahId !== 'all') {
+      const marhalah = lookups?.marhalah.find(m => m.MarhalahID === marhalahId);
+      filterInfo.push(`Marhalah: ${marhalah?.NamaMarhalah || marhalahId}`);
+    }
+    if (kelas && kelas !== 'all') filterInfo.push(`Kelas: ${kelas}`);
+    if (peran && peran !== 'all') filterInfo.push(`Peran: ${peran}`);
+
+    const filename = `Laporan_Absensi${filterInfo.length > 0 ? '_' + filterInfo.join('_').replace(/[: ]/g, '_') : ''}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    XLSX.writeFile(wb, filename);
+
+    toast({
+      title: "Export berhasil",
+      description: `File ${filename} berhasil di-download`,
+    });
   };
 
   const handleExportPDF = () => {
-    console.log("Export to PDF");
+    if (!reportData || reportData.data.length === 0) {
+      toast({
+        title: "Tidak ada data",
+        description: "Tidak ada data untuk di-export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text('Laporan Absensi', 14, 15);
+
+    let yPos = 25;
+    doc.setFontSize(10);
+    
+    const filters = [];
+    if (tanggal) filters.push(`Tanggal: ${tanggal}`);
+    if (marhalahId && marhalahId !== 'all') {
+      const marhalah = lookups?.marhalah.find(m => m.MarhalahID === marhalahId);
+      filters.push(`Marhalah: ${marhalah?.NamaMarhalah || marhalahId}`);
+    }
+    if (kelas && kelas !== 'all') filters.push(`Kelas: ${kelas}`);
+    if (peran && peran !== 'all') filters.push(`Peran: ${peran}`);
+
+    if (filters.length > 0) {
+      doc.text('Filter:', 14, yPos);
+      yPos += 5;
+      filters.forEach(filter => {
+        doc.text(`• ${filter}`, 14, yPos);
+        yPos += 5;
+      });
+      yPos += 3;
+    }
+
+    doc.text('Statistik:', 14, yPos);
+    yPos += 5;
+    doc.text(`Hadir: ${reportData.stats.hadir} | Sakit: ${reportData.stats.sakit} | Izin: ${reportData.stats.izin} | Alpa: ${reportData.stats.alpa} | Terlambat: ${reportData.stats.terlambat}`, 14, yPos);
+    yPos += 8;
+
+    const tableData = reportData.data.map((item) => [
+      item.tanggal,
+      item.nama,
+      item.peran,
+      getMarhalahLabel(item.marhalahId),
+      item.kelas,
+      getWaktuLabel(item.waktuId),
+      getStatusLabel(item.statusId),
+      item.keterangan || '-',
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Tanggal', 'Nama', 'Peran', 'Marhalah', 'Kelas', 'Waktu', 'Status', 'Keterangan']],
+      body: tableData,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 66, 66] },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 15 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 15 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 20 },
+        7: { cellWidth: 'auto' },
+      },
+    });
+
+    const filename = `Laporan_Absensi_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+
+    toast({
+      title: "Export berhasil",
+      description: `File ${filename} berhasil di-download`,
+    });
   };
 
   const getStatusLabel = (statusId: string) => {
