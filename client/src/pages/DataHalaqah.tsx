@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Calendar, Plus } from "lucide-react";
+import { Calendar, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,44 @@ import type {
 } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// Fallback data jika API lookups error
+const FALLBACK_LOOKUPS: LookupsResponse = {
+  marhalah: [
+    { MarhalahID: "MUT", NamaMarhalah: "Mutawassitoh" },
+    { MarhalahID: "ALI", NamaMarhalah: "Aliyah" },
+    { MarhalahID: "JAM", NamaMarhalah: "Jami'iyyah" }
+  ],
+  waktu: [
+    { WaktuID: "SUBUH", NamaWaktu: "Subuh" },
+    { WaktuID: "ASHAR", NamaWaktu: "Ashar" },
+    { WaktuID: "ISYA", NamaWaktu: "Isya" }
+  ],
+  kehadiran: [
+    { StatusID: "HADIR", NamaStatus: "Hadir" },
+    { StatusID: "SAKIT", NamaStatus: "Sakit" },
+    { StatusID: "IZIN", NamaStatus: "Izin" },
+    { StatusID: "ALPA", NamaStatus: "Alpa" },
+    { StatusID: "TERLAMBAT", NamaStatus: "Terlambat" }
+  ],
+  kelas: [
+    { MarhalahID: "MUT", Kelas: "1A" },
+    { MarhalahID: "MUT", Kelas: "1B" },
+    { MarhalahID: "MUT", Kelas: "2A" },
+    { MarhalahID: "MUT", Kelas: "2B" },
+    { MarhalahID: "MUT", Kelas: "3A" },
+    { MarhalahID: "MUT", Kelas: "3B" },
+    { MarhalahID: "ALI", Kelas: "X-A" },
+    { MarhalahID: "ALI", Kelas: "X-B" },
+    { MarhalahID: "ALI", Kelas: "XI-A" },
+    { MarhalahID: "ALI", Kelas: "XI-B" },
+    { MarhalahID: "ALI", Kelas: "XII-A" },
+    { MarhalahID: "ALI", Kelas: "XII-B" },
+    { MarhalahID: "JAM", Kelas: "TQS" },
+    { MarhalahID: "JAM", Kelas: "TAHFIDZ" }
+  ]
+};
 
 export default function DataHalaqah() {
   const { toast } = useToast();
@@ -45,9 +83,13 @@ export default function DataHalaqah() {
   const [absensiState, setAbsensiState] = useState<Record<string, string>>({});
 
   // Fetch lookups
-  const { data: lookups, isLoading: loadingLookups } = useQuery<LookupsResponse>({
+  const { data: lookupsData, isLoading: loadingLookups, isError: errorLookups } = useQuery<LookupsResponse>({
     queryKey: ['/api/lookups'],
+    retry: 2,
   });
+  
+  // Gunakan fallback data jika API error
+  const lookups = errorLookups ? FALLBACK_LOOKUPS : lookupsData;
 
   // Fetch all halaqah
   const { data: allHalaqah, isLoading: loadingHalaqah } = useQuery<Halaqah[]>({
@@ -211,6 +253,16 @@ export default function DataHalaqah() {
           Isi Absensi
         </Button>
       </div>
+
+      {/* Alert jika lookups error */}
+      {errorLookups && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Gagal memuat data lookup dari server. Menggunakan data default. Pastikan Google Sheets memiliki sheet: Lookups_Marhalah, Lookups_Waktu, Lookups_Kehadiran, dan Lookups_Kelas.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Filter Marhalah */}
       <div className="flex gap-4 items-center">
