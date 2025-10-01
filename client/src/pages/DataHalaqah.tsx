@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import HalaqahTable from "@/components/HalaqahTable";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Upload, Trash2, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,31 +19,34 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { 
   Halaqah, 
   Musammi, 
   Santri, 
-  HalaqahMembers,
-  HafalanBulanan,
   LookupsResponse,
-  InsertMusammi,
   InsertSantri,
   InsertHalaqah,
   InsertHalaqahMembers
 } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-interface CombinedHalaqahData {
-  santriId: string;
+interface HalaqahRow {
+  id: string;
   namaSantri: string;
-  kelasSantri: string;
-  marhalahSantri: string;
-  halaqahId: string;
-  nomorHalaqah: number;
+  kelas: string;
+  marhalahId: string;
+  nomorUrutHalaqah: number;
   namaMusammi: string;
   marhalahMusammi: string;
   kelasMusammi: string;
@@ -53,185 +55,341 @@ interface CombinedHalaqahData {
 
 export default function DataHalaqah() {
   const { toast } = useToast();
-  const [activeDialog, setActiveDialog] = useState<'none' | 'musammi' | 'santri' | 'halaqah' | 'member'>('none');
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  // Form states
-  const [musammiForm, setMusammiForm] = useState<InsertMusammi>({
-    NamaMusammi: '',
-    MarhalahID: 'JAM',
-    KelasMusammi: '',
-    Catatan: ''
-  });
-
-  const [santriForm, setSantriForm] = useState<InsertSantri>({
-    NamaSantri: '',
-    MarhalahID: 'MUT',
-    Kelas: '',
-    Aktif: true
-  });
-
-  const [halaqahForm, setHalaqahForm] = useState<InsertHalaqah>({
-    NomorUrutHalaqah: 1,
-    MarhalahID: 'MUT',
-    MusammiID: '',
-    KelasMusammi: '',
-    NamaHalaqah: ''
-  });
-
-  const [memberForm, setMemberForm] = useState<InsertHalaqahMembers>({
-    HalaqahID: '',
-    SantriID: '',
-    TanggalMulai: new Date().toISOString().split('T')[0],
-    TanggalSelesai: ''
-  });
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [rows, setRows] = useState<HalaqahRow[]>([{
+    id: crypto.randomUUID(),
+    namaSantri: '',
+    kelas: '',
+    marhalahId: 'MUT',
+    nomorUrutHalaqah: 1,
+    namaMusammi: '',
+    marhalahMusammi: 'JAM',
+    kelasMusammi: '',
+    jumlahHafalan: 0
+  }]);
 
   // Fetch lookups
-  const { data: lookups } = useQuery<LookupsResponse>({
+  const { data: lookups, isLoading: loadingLookups, isError: errorLookups } = useQuery<LookupsResponse>({
     queryKey: ['/api/lookups'],
   });
 
-  // Fetch all data
   const { data: allHalaqah, isLoading: loadingHalaqah } = useQuery<Halaqah[]>({
     queryKey: ['/api/halaqah'],
   });
 
-  const { data: allMusammi } = useQuery<Musammi[]>({
+  const { data: allMusammi, isLoading: loadingMusammi, isError: errorMusammi } = useQuery<Musammi[]>({
     queryKey: ['/api/musammi'],
   });
 
-  const { data: allSantri } = useQuery<Santri[]>({
+  const { data: allSantri, isLoading: loadingSantri, isError: errorSantri } = useQuery<Santri[]>({
     queryKey: ['/api/santri'],
   });
 
-  const { data: allMembers } = useQuery<HalaqahMembers[]>({
-    queryKey: ['/api/halaqah-members'],
-    enabled: false, // We'll fetch per halaqah when needed
-  });
+  // Check if all required data is loaded
+  const isDataReady = lookups && allSantri && allMusammi && allHalaqah && 
+    !loadingHalaqah && !loadingSantri && !loadingMusammi && !loadingLookups;
+  
+  const hasDataError = errorSantri || errorMusammi || errorLookups;
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const { data: hafalanData } = useQuery<HafalanBulanan[]>({
-    queryKey: ['/api/hafalan', { bulan: currentMonth }],
-    enabled: false, // We'll fetch when needed
-  });
+  // Mutation untuk batch create
+  const bulkCreateMutation = useMutation({
+    mutationFn: async (data: HalaqahRow[]) => {
+      const bulan = new Date().toISOString().slice(0, 7);
+      
+      // In-batch cache untuk menghindari duplikasi
+      const santriCache = new Map<string, string>(); // key: nama+marhalah+kelas, value: santriId
+      const musammiCache = new Map<string, string>(); // key: nama+marhalah+kelas, value: musammiId
+      const halaqahCache = new Map<string, string>(); // key: nomor+marhalah+musammiId, value: halaqahId
+      
+      const results: { row: number; success: boolean; error?: string }[] = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        try {
+          // Normalize inputs
+          const namaSantri = row.namaSantri.trim();
+          const kelas = row.kelas.trim();
+          const namaMusammi = row.namaMusammi.trim();
+          const kelasMusammi = row.kelasMusammi.trim();
+          
+          // Validate
+          if (row.nomorUrutHalaqah < 1) {
+            throw new Error('Nomor urut halaqah harus >= 1');
+          }
+          
+          // 1. Create or get Santri
+          let santriId = '';
+          const santriKey = `${namaSantri.toLowerCase()}|${row.marhalahId}|${kelas}`;
+          
+          if (santriCache.has(santriKey)) {
+            santriId = santriCache.get(santriKey)!;
+          } else {
+            const existingSantri = allSantri?.find(s => 
+              s.NamaSantri.toLowerCase().trim() === namaSantri.toLowerCase() &&
+              s.MarhalahID === row.marhalahId &&
+              s.Kelas.trim() === kelas
+            );
 
-  // Mutations
-  const createMusammiMutation = useMutation({
-    mutationFn: async (data: InsertMusammi) => {
-      const res = await apiRequest('POST', '/api/musammi', data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/musammi'] });
-      toast({ title: "Berhasil", description: "Musammi berhasil ditambahkan" });
-      setActiveDialog('none');
-      resetMusammiForm();
-    },
-    onError: (error: Error) => {
-      toast({ title: "Gagal", description: error.message, variant: "destructive" });
-    }
-  });
+            if (existingSantri) {
+              santriId = existingSantri.SantriID;
+              santriCache.set(santriKey, santriId);
+            } else {
+              const santriData: InsertSantri = {
+                NamaSantri: namaSantri,
+                MarhalahID: row.marhalahId as any,
+                Kelas: kelas,
+                Aktif: true
+              };
+              const santriRes = await apiRequest('POST', '/api/santri', santriData);
+              const newSantri = await santriRes.json();
+              santriId = newSantri.SantriID;
+              santriCache.set(santriKey, santriId);
+            }
+          }
 
-  const createSantriMutation = useMutation({
-    mutationFn: async (data: InsertSantri) => {
-      const res = await apiRequest('POST', '/api/santri', data);
-      return await res.json();
+          // 2. Create or get Musammi
+          let musammiId = '';
+          const musammiKey = `${namaMusammi.toLowerCase()}|${row.marhalahMusammi}|${kelasMusammi}`;
+          
+          if (musammiCache.has(musammiKey)) {
+            musammiId = musammiCache.get(musammiKey)!;
+          } else {
+            const existingMusammi = allMusammi?.find(m => 
+              m.NamaMusammi.toLowerCase().trim() === namaMusammi.toLowerCase() &&
+              m.MarhalahID === row.marhalahMusammi &&
+              m.KelasMusammi.trim() === kelasMusammi
+            );
+
+            if (existingMusammi) {
+              musammiId = existingMusammi.MusammiID;
+              musammiCache.set(musammiKey, musammiId);
+            } else {
+              const musammiData = {
+                NamaMusammi: namaMusammi,
+                MarhalahID: row.marhalahMusammi as any,
+                KelasMusammi: kelasMusammi,
+                Catatan: ''
+              };
+              const musammiRes = await apiRequest('POST', '/api/musammi', musammiData);
+              const newMusammi = await musammiRes.json();
+              musammiId = newMusammi.MusammiID;
+              musammiCache.set(musammiKey, musammiId);
+            }
+          }
+
+          // 3. Create or get Halaqah
+          let halaqahId = '';
+          const halaqahKey = `${row.nomorUrutHalaqah}|${row.marhalahId}|${musammiId}`;
+          
+          if (halaqahCache.has(halaqahKey)) {
+            halaqahId = halaqahCache.get(halaqahKey)!;
+          } else {
+            const existingHalaqah = allHalaqah?.find(h => 
+              h.NomorUrutHalaqah === row.nomorUrutHalaqah &&
+              h.MarhalahID === row.marhalahId &&
+              h.MusammiID === musammiId
+            );
+
+            if (existingHalaqah) {
+              halaqahId = existingHalaqah.HalaqahID;
+              halaqahCache.set(halaqahKey, halaqahId);
+            } else {
+              const halaqahData: InsertHalaqah = {
+                NomorUrutHalaqah: row.nomorUrutHalaqah,
+                MarhalahID: row.marhalahId as any,
+                MusammiID: musammiId,
+                KelasMusammi: row.kelasMusammi,
+                NamaHalaqah: `Halaqah ${row.nomorUrutHalaqah}`
+              };
+              const halaqahRes = await apiRequest('POST', '/api/halaqah', halaqahData);
+              const newHalaqah = await halaqahRes.json();
+              halaqahId = newHalaqah.HalaqahID;
+              halaqahCache.set(halaqahKey, halaqahId);
+            }
+          }
+
+          // 4. Add santri to halaqah - with robust error handling
+          try {
+            const memberData: InsertHalaqahMembers = {
+              HalaqahID: halaqahId,
+              SantriID: santriId,
+              TanggalMulai: new Date().toISOString().split('T')[0],
+              TanggalSelesai: ''
+            };
+            const memberRes = await apiRequest('POST', '/api/halaqah-members', memberData);
+            
+            // Check if response is not ok
+            if (!memberRes.ok) {
+              const errorData = await memberRes.json();
+              // Ignore 409 Conflict or 500 with "already" message
+              if (memberRes.status === 409 || 
+                  (memberRes.status === 500 && errorData.error?.toLowerCase().includes('already'))) {
+                // Skip - santri already in halaqah, this is not an error
+              } else {
+                throw new Error(errorData.error || 'Gagal menambahkan member');
+              }
+            }
+          } catch (memberError: any) {
+            // Only swallow "already exists" errors
+            if (!memberError.message?.toLowerCase().includes('already')) {
+              throw memberError;
+            }
+          }
+
+          // 5. Create hafalan record if jumlahHafalan > 0
+          if (row.jumlahHafalan > 0) {
+            const hafalanData = {
+              Bulan: bulan,
+              SantriID: santriId,
+              HalaqahID: halaqahId,
+              MarhalahID: row.marhalahId,
+              Kelas: kelas, // Use normalized kelas
+              MusammiID: musammiId,
+              JumlahHafalan: row.jumlahHafalan
+            };
+            await apiRequest('POST', '/api/hafalan', hafalanData);
+          }
+          
+          results.push({ row: i + 1, success: true });
+        } catch (error: any) {
+          results.push({ row: i + 1, success: false, error: error.message });
+        }
+      }
+      
+      return results;
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['/api/santri'] });
-      toast({ title: "Berhasil", description: "Santri berhasil ditambahkan" });
-      setActiveDialog('none');
-      resetSantriForm();
-    },
-    onError: (error: Error) => {
-      toast({ title: "Gagal", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const createHalaqahMutation = useMutation({
-    mutationFn: async (data: InsertHalaqah) => {
-      const res = await apiRequest('POST', '/api/halaqah', data);
-      return await res.json();
-    },
-    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/musammi'] });
       queryClient.invalidateQueries({ queryKey: ['/api/halaqah'] });
-      toast({ title: "Berhasil", description: "Halaqah berhasil ditambahkan" });
-      setActiveDialog('none');
-      resetHalaqahForm();
-    },
-    onError: (error: Error) => {
-      toast({ title: "Gagal", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const createMemberMutation = useMutation({
-    mutationFn: async (data: InsertHalaqahMembers) => {
-      const res = await apiRequest('POST', '/api/halaqah-members', data);
-      return await res.json();
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/halaqah-members'] });
-      toast({ title: "Berhasil", description: "Santri berhasil ditambahkan ke halaqah" });
-      setActiveDialog('none');
-      resetMemberForm();
+      queryClient.invalidateQueries({ queryKey: ['/api/hafalan'] });
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+      
+      if (failCount === 0) {
+        toast({ 
+          title: "Berhasil", 
+          description: `${successCount} data halaqah berhasil ditambahkan` 
+        });
+        // Close dialog and reset only if all succeeded
+        setShowBulkForm(false);
+        setRows([{
+          id: crypto.randomUUID(),
+          namaSantri: '',
+          kelas: '',
+          marhalahId: 'MUT',
+          nomorUrutHalaqah: 1,
+          namaMusammi: '',
+          marhalahMusammi: 'JAM',
+          kelasMusammi: '',
+          jumlahHafalan: 0
+        }]);
+      } else {
+        const failedRows = results.filter(r => !r.success);
+        const failedRowsStr = failedRows.map(r => r.row).join(', ');
+        const firstErrors = failedRows.slice(0, 2).map(r => r.error).join('; ');
+        
+        toast({ 
+          title: "Selesai dengan Error", 
+          description: `${successCount} berhasil, ${failCount} gagal (baris: ${failedRowsStr}). Error: ${firstErrors}`,
+          variant: "destructive"
+        });
+        // Keep dialog open - user can fix and retry
+      }
     },
     onError: (error: Error) => {
-      toast({ title: "Gagal", description: error.message, variant: "destructive" });
+      toast({ 
+        title: "Gagal", 
+        description: error.message, 
+        variant: "destructive" 
+      });
     }
   });
 
-  // Reset forms
-  const resetMusammiForm = () => {
-    setMusammiForm({
-      NamaMusammi: '',
-      MarhalahID: 'JAM',
-      KelasMusammi: '',
-      Catatan: ''
-    });
-    setEditingId(null);
+  const addRow = () => {
+    setRows([...rows, {
+      id: crypto.randomUUID(),
+      namaSantri: '',
+      kelas: '',
+      marhalahId: 'MUT',
+      nomorUrutHalaqah: 1,
+      namaMusammi: '',
+      marhalahMusammi: 'JAM',
+      kelasMusammi: '',
+      jumlahHafalan: 0
+    }]);
   };
 
-  const resetSantriForm = () => {
-    setSantriForm({
-      NamaSantri: '',
-      MarhalahID: 'MUT',
-      Kelas: '',
-      Aktif: true
-    });
-    setEditingId(null);
+  const removeRow = (id: string) => {
+    setRows(rows.filter(row => row.id !== id));
   };
 
-  const resetHalaqahForm = () => {
-    setHalaqahForm({
-      NomorUrutHalaqah: 1,
-      MarhalahID: 'MUT',
-      MusammiID: '',
-      KelasMusammi: '',
-      NamaHalaqah: ''
-    });
-    setEditingId(null);
+  const updateRow = (id: string, field: keyof HalaqahRow, value: any) => {
+    setRows(rows.map(row => 
+      row.id === id ? { ...row, [field]: value } : row
+    ));
   };
 
-  const resetMemberForm = () => {
-    setMemberForm({
-      HalaqahID: '',
-      SantriID: '',
-      TanggalMulai: new Date().toISOString().split('T')[0],
-      TanggalSelesai: ''
-    });
-  };
-
-  // Get available kelas options based on selected marhalah
   const getKelasOptions = (marhalahId: string) => {
     return lookups?.kelas.filter(k => k.MarhalahID === marhalahId) || [];
   };
 
-  // Combine data for table - This is a simplified version
-  // In production, you would need to fetch all relationships properly
-  const combinedData: CombinedHalaqahData[] = [];
+  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  // Note: This is mock transformation - actual implementation would need proper API endpoint
-  // or client-side joining of multiple queries
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      // Skip header line
+      const dataLines = lines.slice(1);
+      
+      const importedRows: HalaqahRow[] = dataLines.map(line => {
+        const [namaSantri, kelas, marhalahId, nomorUrutHalaqah, namaMusammi, marhalahMusammi, kelasMusammi, jumlahHafalan] = line.split(',').map(s => s.trim());
+        
+        return {
+          id: crypto.randomUUID(),
+          namaSantri,
+          kelas,
+          marhalahId: (marhalahId || 'MUT') as any,
+          nomorUrutHalaqah: parseInt(nomorUrutHalaqah) || 1,
+          namaMusammi,
+          marhalahMusammi: (marhalahMusammi || 'JAM') as any,
+          kelasMusammi,
+          jumlahHafalan: parseFloat(jumlahHafalan) || 0
+        };
+      });
+
+      if (importedRows.length > 0) {
+        setRows(importedRows);
+        toast({ 
+          title: "Import Berhasil", 
+          description: `${importedRows.length} baris data berhasil diimport` 
+        });
+      }
+    };
+
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
+  const downloadTemplate = () => {
+    const headers = ['Nama Santri', 'Kelas', 'Marhalah', 'Nomor Urut Halaqah', 'Nama Musammi', 'Marhalah Musammi', 'Kelas Musammi', 'Jumlah Hafalan (Juz)'];
+    const example = ['Ahmad', '1A', 'MUT', '1', 'Ustadz Ali', 'JAM', 'TQS', '2.5'];
+    const csv = [headers.join(','), example.join(',')].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template-halaqah.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loadingHalaqah) {
     return (
@@ -239,18 +397,6 @@ export default function DataHalaqah() {
         <div>
           <Skeleton className="h-9 w-96" />
           <Skeleton className="h-5 w-full max-w-2xl mt-2" />
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-5 w-32" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-full" />
-              </CardContent>
-            </Card>
-          ))}
         </div>
       </div>
     );
@@ -265,416 +411,249 @@ export default function DataHalaqah() {
             Kelola data santri, musammi, dan keanggotaan halaqah
           </p>
         </div>
+        <Button onClick={() => setShowBulkForm(true)} data-testid="button-add-halaqah">
+          <Plus className="h-4 w-4 mr-2" />
+          Tambah Halaqah
+        </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-          <TabsTrigger value="musammi" data-testid="tab-musammi">Musammi</TabsTrigger>
-          <TabsTrigger value="santri" data-testid="tab-santri">Santri</TabsTrigger>
-          <TabsTrigger value="halaqah" data-testid="tab-halaqah">Halaqah</TabsTrigger>
-          <TabsTrigger value="members" data-testid="tab-members">Keanggotaan</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setActiveDialog('member')} data-testid="button-add-member">
-              <Plus className="h-4 w-4 mr-2" />
-              Tambah ke Halaqah
-            </Button>
-          </div>
-          <Card>
-            <CardHeader>
-              <p className="text-sm text-muted-foreground">
-                Tabel gabungan akan menampilkan data lengkap dari santri, halaqah, dan musammi.
-                Gunakan tab di atas untuk mengelola data per kategori.
-              </p>
-            </CardHeader>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="musammi" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setActiveDialog('musammi')} data-testid="button-add-musammi">
-              <Plus className="h-4 w-4 mr-2" />
-              Tambah Musammi
-            </Button>
-          </div>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                {allMusammi?.map((m) => (
-                  <div key={m.MusammiID} className="flex items-center justify-between p-3 border rounded-lg hover-elevate" data-testid={`item-musammi-${m.MusammiID}`}>
-                    <div>
-                      <p className="font-medium">{m.NamaMusammi}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {lookups?.marhalah.find(mar => mar.MarhalahID === m.MarhalahID)?.NamaMarhalah} - {m.KelasMusammi}
-                      </p>
-                    </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Daftar Halaqah</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {allHalaqah?.map((h) => {
+              const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
+              return (
+                <div key={h.HalaqahID} className="flex items-center justify-between p-3 border rounded-lg hover-elevate" data-testid={`item-halaqah-${h.HalaqahID}`}>
+                  <div>
+                    <p className="font-medium">Halaqah {h.NomorUrutHalaqah} - {h.NamaHalaqah || 'Tanpa Nama'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {lookups?.marhalah.find(mar => mar.MarhalahID === h.MarhalahID)?.NamaMarhalah} - Musammi: {musammi?.NamaMusammi || 'N/A'}
+                    </p>
                   </div>
-                ))}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bulk Form Dialog */}
+      <Dialog open={showBulkForm} onOpenChange={(open) => !open && setShowBulkForm(false)}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto" data-testid="dialog-bulk-halaqah">
+          <DialogHeader>
+            <DialogTitle>Tambah Data Halaqah</DialogTitle>
+            <DialogDescription>
+              Tambahkan data santri, halaqah, dan musammi sekaligus dalam bentuk tabel
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {hasDataError && (
+              <div className="p-3 bg-destructive/10 border border-destructive rounded-lg">
+                <p className="text-sm text-destructive font-medium">
+                  Error memuat data. Silakan refresh halaman dan coba lagi.
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="santri" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setActiveDialog('santri')} data-testid="button-add-santri">
-              <Plus className="h-4 w-4 mr-2" />
-              Tambah Santri
-            </Button>
-          </div>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                {allSantri?.map((s) => (
-                  <div key={s.SantriID} className="flex items-center justify-between p-3 border rounded-lg hover-elevate" data-testid={`item-santri-${s.SantriID}`}>
-                    <div>
-                      <p className="font-medium">{s.NamaSantri}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {lookups?.marhalah.find(mar => mar.MarhalahID === s.MarhalahID)?.NamaMarhalah} - {s.Kelas}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="halaqah" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setActiveDialog('halaqah')} data-testid="button-add-halaqah">
-              <Plus className="h-4 w-4 mr-2" />
-              Tambah Halaqah
-            </Button>
-          </div>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                {allHalaqah?.map((h) => {
-                  const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                  return (
-                    <div key={h.HalaqahID} className="flex items-center justify-between p-3 border rounded-lg hover-elevate" data-testid={`item-halaqah-${h.HalaqahID}`}>
-                      <div>
-                        <p className="font-medium">Halaqah {h.NomorUrutHalaqah} - {h.NamaHalaqah || 'Tanpa Nama'}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {lookups?.marhalah.find(mar => mar.MarhalahID === h.MarhalahID)?.NamaMarhalah} - Musammi: {musammi?.NamaMusammi || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="members" className="space-y-4">
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">
-                Kelola keanggotaan santri di halaqah. Gunakan tombol "Tambah ke Halaqah" di tab Overview.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Musammi Dialog */}
-      <Dialog open={activeDialog === 'musammi'} onOpenChange={(open) => !open && setActiveDialog('none')}>
-        <DialogContent data-testid="dialog-musammi">
-          <DialogHeader>
-            <DialogTitle>Tambah Musammi</DialogTitle>
-            <DialogDescription>Tambahkan data musammi baru</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nama-musammi">Nama Musammi</Label>
-              <Input
-                id="nama-musammi"
-                value={musammiForm.NamaMusammi}
-                onChange={(e) => setMusammiForm({ ...musammiForm, NamaMusammi: e.target.value })}
-                data-testid="input-nama-musammi"
+            )}
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={addRow}
+                data-testid="button-add-row"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Baris
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => document.getElementById('csv-upload')?.click()}
+                data-testid="button-import-csv"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import CSV
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={downloadTemplate}
+                data-testid="button-download-template"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </Button>
+              <input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleImportCSV}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="marhalah-musammi">Marhalah</Label>
-              <Select
-                value={musammiForm.MarhalahID}
-                onValueChange={(value: any) => setMusammiForm({ ...musammiForm, MarhalahID: value, KelasMusammi: '' })}
-              >
-                <SelectTrigger id="marhalah-musammi" data-testid="select-marhalah-musammi">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {lookups?.marhalah.map((m) => (
-                    <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
-                      {m.NamaMarhalah}
-                    </SelectItem>
+
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[150px]">Nama Santri</TableHead>
+                    <TableHead className="min-w-[100px]">Kelas</TableHead>
+                    <TableHead className="min-w-[120px]">Marhalah</TableHead>
+                    <TableHead className="min-w-[80px]">No. Halaqah</TableHead>
+                    <TableHead className="min-w-[150px]">Nama Musammi</TableHead>
+                    <TableHead className="min-w-[120px]">Marhalah Musammi</TableHead>
+                    <TableHead className="min-w-[120px]">Kelas Musammi</TableHead>
+                    <TableHead className="min-w-[100px]">Hafalan (Juz)</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row, index) => (
+                    <TableRow key={row.id} data-testid={`row-halaqah-${index}`}>
+                      <TableCell>
+                        <Input
+                          value={row.namaSantri}
+                          onChange={(e) => updateRow(row.id, 'namaSantri', e.target.value)}
+                          placeholder="Nama santri"
+                          data-testid={`input-nama-santri-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={row.kelas}
+                          onValueChange={(value) => updateRow(row.id, 'kelas', value)}
+                        >
+                          <SelectTrigger data-testid={`select-kelas-${index}`}>
+                            <SelectValue placeholder="Kelas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getKelasOptions(row.marhalahId).map((k) => (
+                              <SelectItem key={k.Kelas} value={k.Kelas}>
+                                {k.Kelas}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={row.marhalahId}
+                          onValueChange={(value) => {
+                            updateRow(row.id, 'marhalahId', value);
+                            updateRow(row.id, 'kelas', '');
+                          }}
+                        >
+                          <SelectTrigger data-testid={`select-marhalah-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
+                              <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
+                                {m.NamaMarhalah}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={row.nomorUrutHalaqah}
+                          onChange={(e) => updateRow(row.id, 'nomorUrutHalaqah', parseInt(e.target.value) || 1)}
+                          data-testid={`input-nomor-halaqah-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={row.namaMusammi}
+                          onChange={(e) => updateRow(row.id, 'namaMusammi', e.target.value)}
+                          placeholder="Nama musammi"
+                          data-testid={`input-nama-musammi-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={row.marhalahMusammi}
+                          onValueChange={(value) => {
+                            updateRow(row.id, 'marhalahMusammi', value);
+                            updateRow(row.id, 'kelasMusammi', '');
+                          }}
+                        >
+                          <SelectTrigger data-testid={`select-marhalah-musammi-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {lookups?.marhalah.map((m) => (
+                              <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
+                                {m.NamaMarhalah}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={row.kelasMusammi}
+                          onValueChange={(value) => updateRow(row.id, 'kelasMusammi', value)}
+                        >
+                          <SelectTrigger data-testid={`select-kelas-musammi-${index}`}>
+                            <SelectValue placeholder="Kelas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getKelasOptions(row.marhalahMusammi).map((k) => (
+                              <SelectItem key={k.Kelas} value={k.Kelas}>
+                                {k.Kelas}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={row.jumlahHafalan}
+                          onChange={(e) => updateRow(row.id, 'jumlahHafalan', parseFloat(e.target.value) || 0)}
+                          data-testid={`input-hafalan-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeRow(row.id)}
+                          disabled={rows.length === 1}
+                          data-testid={`button-remove-row-${index}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kelas-musammi">Kelas</Label>
-              <Select
-                value={musammiForm.KelasMusammi}
-                onValueChange={(value) => setMusammiForm({ ...musammiForm, KelasMusammi: value })}
-              >
-                <SelectTrigger id="kelas-musammi" data-testid="select-kelas-musammi">
-                  <SelectValue placeholder="Pilih Kelas" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getKelasOptions(musammiForm.MarhalahID).map((k) => (
-                    <SelectItem key={k.Kelas} value={k.Kelas}>
-                      {k.Kelas}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="catatan-musammi">Catatan (Opsional)</Label>
-              <Input
-                id="catatan-musammi"
-                value={musammiForm.Catatan}
-                onChange={(e) => setMusammiForm({ ...musammiForm, Catatan: e.target.value })}
-                data-testid="input-catatan-musammi"
-              />
+                </TableBody>
+              </Table>
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog('none')}>Batal</Button>
             <Button 
-              onClick={() => createMusammiMutation.mutate(musammiForm)} 
-              disabled={createMusammiMutation.isPending}
-              data-testid="button-save-musammi"
+              variant="outline" 
+              onClick={() => setShowBulkForm(false)}
+              data-testid="button-cancel"
             >
-              {createMusammiMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+              Batal
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Santri Dialog */}
-      <Dialog open={activeDialog === 'santri'} onOpenChange={(open) => !open && setActiveDialog('none')}>
-        <DialogContent data-testid="dialog-santri">
-          <DialogHeader>
-            <DialogTitle>Tambah Santri</DialogTitle>
-            <DialogDescription>Tambahkan data santri baru</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nama-santri">Nama Santri</Label>
-              <Input
-                id="nama-santri"
-                value={santriForm.NamaSantri}
-                onChange={(e) => setSantriForm({ ...santriForm, NamaSantri: e.target.value })}
-                data-testid="input-nama-santri"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="marhalah-santri">Marhalah</Label>
-              <Select
-                value={santriForm.MarhalahID}
-                onValueChange={(value: any) => setSantriForm({ ...santriForm, MarhalahID: value, Kelas: '' })}
-              >
-                <SelectTrigger id="marhalah-santri" data-testid="select-marhalah-santri">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
-                    <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
-                      {m.NamaMarhalah}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kelas-santri">Kelas</Label>
-              <Select
-                value={santriForm.Kelas}
-                onValueChange={(value) => setSantriForm({ ...santriForm, Kelas: value })}
-              >
-                <SelectTrigger id="kelas-santri" data-testid="select-kelas-santri">
-                  <SelectValue placeholder="Pilih Kelas" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getKelasOptions(santriForm.MarhalahID).map((k) => (
-                    <SelectItem key={k.Kelas} value={k.Kelas}>
-                      {k.Kelas}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog('none')}>Batal</Button>
             <Button 
-              onClick={() => createSantriMutation.mutate(santriForm)}
-              disabled={createSantriMutation.isPending}
-              data-testid="button-save-santri"
+              onClick={() => bulkCreateMutation.mutate(rows)}
+              disabled={
+                !isDataReady ||
+                bulkCreateMutation.isPending || 
+                rows.some(r => !r.namaSantri || !r.kelas || !r.namaMusammi || !r.kelasMusammi)
+              }
+              data-testid="button-save-bulk"
             >
-              {createSantriMutation.isPending ? 'Menyimpan...' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Halaqah Dialog */}
-      <Dialog open={activeDialog === 'halaqah'} onOpenChange={(open) => !open && setActiveDialog('none')}>
-        <DialogContent data-testid="dialog-halaqah">
-          <DialogHeader>
-            <DialogTitle>Tambah Halaqah</DialogTitle>
-            <DialogDescription>Tambahkan halaqah baru</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nomor-halaqah">Nomor Urut Halaqah</Label>
-              <Input
-                id="nomor-halaqah"
-                type="number"
-                value={halaqahForm.NomorUrutHalaqah}
-                onChange={(e) => setHalaqahForm({ ...halaqahForm, NomorUrutHalaqah: parseInt(e.target.value) })}
-                data-testid="input-nomor-halaqah"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="marhalah-halaqah">Marhalah</Label>
-              <Select
-                value={halaqahForm.MarhalahID}
-                onValueChange={(value: any) => setHalaqahForm({ ...halaqahForm, MarhalahID: value })}
-              >
-                <SelectTrigger id="marhalah-halaqah" data-testid="select-marhalah-halaqah">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
-                    <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
-                      {m.NamaMarhalah}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="musammi-halaqah">Musammi</Label>
-              <Select
-                value={halaqahForm.MusammiID}
-                onValueChange={(value) => {
-                  const musammi = allMusammi?.find(m => m.MusammiID === value);
-                  setHalaqahForm({ 
-                    ...halaqahForm, 
-                    MusammiID: value,
-                    KelasMusammi: musammi?.KelasMusammi || ''
-                  });
-                }}
-              >
-                <SelectTrigger id="musammi-halaqah" data-testid="select-musammi-halaqah">
-                  <SelectValue placeholder="Pilih Musammi" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allMusammi?.map((m) => (
-                    <SelectItem key={m.MusammiID} value={m.MusammiID}>
-                      {m.NamaMusammi} ({m.KelasMusammi})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nama-halaqah">Nama Halaqah (Opsional)</Label>
-              <Input
-                id="nama-halaqah"
-                value={halaqahForm.NamaHalaqah}
-                onChange={(e) => setHalaqahForm({ ...halaqahForm, NamaHalaqah: e.target.value })}
-                data-testid="input-nama-halaqah"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog('none')}>Batal</Button>
-            <Button 
-              onClick={() => createHalaqahMutation.mutate(halaqahForm)}
-              disabled={createHalaqahMutation.isPending}
-              data-testid="button-save-halaqah"
-            >
-              {createHalaqahMutation.isPending ? 'Menyimpan...' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Member Dialog */}
-      <Dialog open={activeDialog === 'member'} onOpenChange={(open) => !open && setActiveDialog('none')}>
-        <DialogContent data-testid="dialog-member">
-          <DialogHeader>
-            <DialogTitle>Tambah Santri ke Halaqah</DialogTitle>
-            <DialogDescription>Masukkan santri ke halaqah tertentu</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="halaqah-member">Halaqah</Label>
-              <Select
-                value={memberForm.HalaqahID}
-                onValueChange={(value) => setMemberForm({ ...memberForm, HalaqahID: value })}
-              >
-                <SelectTrigger id="halaqah-member" data-testid="select-halaqah-member">
-                  <SelectValue placeholder="Pilih Halaqah" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allHalaqah?.map((h) => {
-                    const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                    return (
-                      <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
-                        Halaqah {h.NomorUrutHalaqah} - {musammi?.NamaMusammi || 'N/A'}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="santri-member">Santri</Label>
-              <Select
-                value={memberForm.SantriID}
-                onValueChange={(value) => setMemberForm({ ...memberForm, SantriID: value })}
-              >
-                <SelectTrigger id="santri-member" data-testid="select-santri-member">
-                  <SelectValue placeholder="Pilih Santri" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allSantri?.filter(s => s.Aktif).map((s) => (
-                    <SelectItem key={s.SantriID} value={s.SantriID}>
-                      {s.NamaSantri} ({s.Kelas})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tanggal-mulai">Tanggal Mulai</Label>
-              <Input
-                id="tanggal-mulai"
-                type="date"
-                value={memberForm.TanggalMulai}
-                onChange={(e) => setMemberForm({ ...memberForm, TanggalMulai: e.target.value })}
-                data-testid="input-tanggal-mulai"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog('none')}>Batal</Button>
-            <Button 
-              onClick={() => createMemberMutation.mutate(memberForm)}
-              disabled={createMemberMutation.isPending}
-              data-testid="button-save-member"
-            >
-              {createMemberMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+              {!isDataReady ? 'Memuat...' : bulkCreateMutation.isPending ? 'Menyimpan...' : 'Simpan Semua'}
             </Button>
           </DialogFooter>
         </DialogContent>
