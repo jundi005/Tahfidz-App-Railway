@@ -336,7 +336,7 @@ export default function Laporan() {
       )}
 
       {!isLoading && !error && reportData && reportData.total > 0 && (
-        <Card>
+        <Card data-testid="card-distribution-chart">
           <CardHeader>
             <CardTitle>Distribusi Kehadiran</CardTitle>
           </CardHeader>
@@ -363,7 +363,7 @@ export default function Laporan() {
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
                 />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} data-testid="chart-bar-attendance">
                   {[
                     { name: 'Hadir', value: reportData.stats.hadir, fill: '#22c55e' },
                     { name: 'Sakit', value: reportData.stats.sakit, fill: '#eab308' },
@@ -371,7 +371,7 @@ export default function Laporan() {
                     { name: 'Alpa', value: reportData.stats.alpa, fill: '#ef4444' },
                     { name: 'Terlambat', value: reportData.stats.terlambat, fill: '#f97316' },
                   ].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                    <Cell key={`cell-${index}`} fill={entry.fill} data-testid={`chart-cell-${entry.name.toLowerCase()}`} />
                   ))}
                 </Bar>
               </BarChart>
