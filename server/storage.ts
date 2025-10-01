@@ -164,14 +164,18 @@ export class GoogleSheetsStorage implements IStorage {
       url.searchParams.set("path", pathSegments[0]);
     } else if (pathSegments.length === 2) {
       // Path with ID like 'halaqah/123' or path with subpath like 'dashboard/stats'
-      // Check if second segment looks like an ID (UUID) or a subpath
+      const firstSegment = pathSegments[0];
       const secondSegment = pathSegments[1];
-      if (secondSegment.length > 20 || secondSegment.includes("-")) {
-        // Likely an ID
-        url.searchParams.set("path", pathSegments[0]);
+      
+      // Resources that have IDs
+      const resourcesWithIds = ['halaqah', 'musammi', 'santri', 'hafalan', 'murojaah', 'tasks'];
+      
+      if (resourcesWithIds.includes(firstSegment)) {
+        // This is a resource with an ID
+        url.searchParams.set("path", firstSegment);
         url.searchParams.set("id", secondSegment);
       } else {
-        // Likely a subpath like 'dashboard/stats'
+        // This is a subpath like 'dashboard/stats' or 'absensi/santri'
         url.searchParams.set("path", cleanPath);
       }
     } else if (pathSegments.length === 3) {
