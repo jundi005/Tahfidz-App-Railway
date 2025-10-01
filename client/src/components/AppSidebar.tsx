@@ -23,11 +23,6 @@ const menuItems = [
     icon: Users,
   },
   {
-    title: "Absensi",
-    url: "/absensi",
-    icon: ClipboardCheck,
-  },
-  {
     title: "Perkembangan",
     url: "/perkembangan",
     icon: BookOpen,

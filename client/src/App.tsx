@@ -9,7 +9,6 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import Dashboard from "@/pages/Dashboard";
 import DataHalaqah from "@/pages/DataHalaqah";
-import Absensi from "@/pages/Absensi";
 import Perkembangan from "@/pages/Perkembangan";
 import Kalender from "@/pages/Kalender";
 import NotFound from "@/pages/not-found";
@@ -19,7 +18,6 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/data-halaqah" component={DataHalaqah} />
-      <Route path="/absensi" component={Absensi} />
       <Route path="/perkembangan" component={Perkembangan} />
       <Route path="/kalender" component={Kalender} />
       <Route component={NotFound} />
