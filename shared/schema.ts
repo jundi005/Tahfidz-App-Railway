@@ -257,3 +257,19 @@ export const lookupsResponseSchema = z.object({
 });
 
 export type LookupsResponse = z.infer<typeof lookupsResponseSchema>;
+
+// ============= COMPOSITE TYPES FOR UI =============
+
+export interface SantriWithKelas {
+  santriId: string;
+  namaSantri: string;
+  kelas: string;
+}
+
+export interface HalaqahWithDetails {
+  halaqahId: string;
+  nomorUrutHalaqah: number;
+  marhalahId: string;
+  namaMusammi: string;
+  santriList: SantriWithKelas[];
+}
