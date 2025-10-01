@@ -913,6 +913,35 @@ export class MemStorage implements IStorage {
       terlambat: todayAbsensi.filter((a) => a.StatusID === "TERLAMBAT").length,
     };
 
+    // Calculate hafalan per bulan (last 6 months)
+    const currentDate = new Date();
+    const hafalanBulanIni: Array<{ bulan: string; rataMutawassitoh: number; rataAliyah: number }> = [];
+    const allHafalan = Array.from(this.hafalanBulanan.values());
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const bulan = date.toISOString().substring(0, 7); // YYYY-MM format
+      const bulanName = date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+      
+      // Get hafalan for this month
+      const hafalanMut = allHafalan.filter(h => h.Bulan === bulan && h.MarhalahID === 'MUT');
+      const hafalanAli = allHafalan.filter(h => h.Bulan === bulan && h.MarhalahID === 'ALI');
+      
+      // Calculate average
+      const rataMutawassitoh = hafalanMut.length > 0 
+        ? hafalanMut.reduce((sum, h) => sum + h.JumlahHafalan, 0) / hafalanMut.length 
+        : 0;
+      const rataAliyah = hafalanAli.length > 0 
+        ? hafalanAli.reduce((sum, h) => sum + h.JumlahHafalan, 0) / hafalanAli.length 
+        : 0;
+      
+      hafalanBulanIni.push({
+        bulan: bulanName,
+        rataMutawassitoh: Math.round(rataMutawassitoh * 10) / 10, // Round to 1 decimal
+        rataAliyah: Math.round(rataAliyah * 10) / 10, // Round to 1 decimal
+      });
+    }
+
     return {
       totalSantri,
       santriMutawassitoh,
@@ -923,7 +952,7 @@ export class MemStorage implements IStorage {
       musammiHalaqahAliyah,
       musammiHalaqahMutawassitoh,
       absensiHariIni,
-      hafalanBulanIni: [],
+      hafalanBulanIni,
     };
   }
 }

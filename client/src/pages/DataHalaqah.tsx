@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Calendar, AlertCircle, Plus, Upload, Trash2 } from "lucide-react";
+import { Calendar, AlertCircle, Plus, Upload, Trash2, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -93,6 +93,8 @@ export default function DataHalaqah() {
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [showAbsensiDialog, setShowAbsensiDialog] = useState(false);
   const [showTambahDialog, setShowTambahDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingHalaqahId, setEditingHalaqahId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State untuk menyimpan status absensi setiap santri dan musammi
@@ -116,6 +118,9 @@ export default function DataHalaqah() {
       kelasMusammi: "",
     }
   ]);
+
+  // State untuk data tabel edit halaqah
+  const [editHalaqahRows, setEditHalaqahRows] = useState<HalaqahRow[]>([]);
 
   // Fetch lookups
   const { data: lookupsData, isLoading: loadingLookups, isError: errorLookups } = useQuery<LookupsResponse>({
@@ -723,6 +728,234 @@ export default function DataHalaqah() {
     submitAbsensiMutation.mutate(batchData);
   };
 
+  // ========== FUNGSI UNTUK EDIT HALAQAH ==========
+  
+  // Fungsi untuk membuka dialog edit dan load data halaqah
+  const handleOpenEditDialog = (halaqahId: string) => {
+    const halaqah = allHalaqah?.find(h => h.HalaqahID === halaqahId);
+    const halaqahDetail = halaqahWithDetails.find(h => h.halaqahId === halaqahId);
+    
+    if (!halaqah || !halaqahDetail) {
+      toast({
+        title: "Error",
+        description: "Data halaqah tidak ditemukan",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const musammi = allMusammi?.find(m => m.MusammiID === halaqah.MusammiID);
+    
+    // Build rows dari santri yang ada di halaqah
+    const rows: HalaqahRow[] = halaqahDetail.santriList.map(santri => {
+      const santriData = allSantri?.find(s => s.SantriID === santri.santriId);
+      return {
+        id: crypto.randomUUID(),
+        namaSantri: santri.namaSantri,
+        marhalahSantri: santriData?.MarhalahID || halaqah.MarhalahID,
+        kelasSantri: santri.kelas,
+        nomorUrutHalaqah: String(halaqah.NomorUrutHalaqah),
+        namaMusammi: musammi?.NamaMusammi || '',
+        marhalahMusammi: musammi?.MarhalahID || halaqah.MarhalahID,
+        kelasMusammi: musammi?.KelasMusammi || halaqah.KelasMusammi,
+      };
+    });
+
+    // Jika tidak ada santri, buat 1 row kosong dengan data musammi
+    if (rows.length === 0) {
+      rows.push({
+        id: crypto.randomUUID(),
+        namaSantri: "",
+        marhalahSantri: halaqah.MarhalahID,
+        kelasSantri: "",
+        nomorUrutHalaqah: String(halaqah.NomorUrutHalaqah),
+        namaMusammi: musammi?.NamaMusammi || '',
+        marhalahMusammi: musammi?.MarhalahID || halaqah.MarhalahID,
+        kelasMusammi: musammi?.KelasMusammi || halaqah.KelasMusammi,
+      });
+    }
+
+    setEditHalaqahRows(rows);
+    setEditingHalaqahId(halaqahId);
+    setShowEditDialog(true);
+  };
+
+  // Fungsi untuk update field di edit row
+  const updateEditRow = (id: string, field: keyof HalaqahRow, value: string) => {
+    setEditHalaqahRows(editHalaqahRows.map(row => {
+      if (row.id === id) {
+        const updated = { ...row, [field]: value };
+        
+        // Reset kelas jika marhalah berubah
+        if (field === 'marhalahSantri' && row.marhalahSantri !== value) {
+          updated.kelasSantri = "";
+        }
+        if (field === 'marhalahMusammi' && row.marhalahMusammi !== value) {
+          updated.kelasMusammi = "";
+        }
+        
+        return updated;
+      }
+      return row;
+    }));
+  };
+
+  // Fungsi untuk menambah baris baru di edit
+  const addNewEditRow = () => {
+    const lastRow = editHalaqahRows[editHalaqahRows.length - 1];
+    setEditHalaqahRows([...editHalaqahRows, {
+      id: crypto.randomUUID(),
+      namaSantri: "",
+      marhalahSantri: lastRow?.marhalahSantri || "",
+      kelasSantri: "",
+      nomorUrutHalaqah: lastRow?.nomorUrutHalaqah || "",
+      namaMusammi: lastRow?.namaMusammi || "",
+      marhalahMusammi: lastRow?.marhalahMusammi || "",
+      kelasMusammi: lastRow?.kelasMusammi || "",
+    }]);
+  };
+
+  // Fungsi untuk menghapus baris di edit
+  const deleteEditRow = (id: string) => {
+    if (editHalaqahRows.length === 1) {
+      toast({
+        title: "Peringatan",
+        description: "Minimal harus ada 1 baris",
+        variant: "destructive"
+      });
+      return;
+    }
+    setEditHalaqahRows(editHalaqahRows.filter(row => row.id !== id));
+  };
+
+  // Mutation untuk submit edit halaqah
+  const submitEditHalaqahMutation = useMutation({
+    mutationFn: async (rows: HalaqahRow[]) => {
+      // Validasi data
+      for (const row of rows) {
+        if (!row.nomorUrutHalaqah || !row.namaMusammi || !row.marhalahMusammi || !row.kelasMusammi) {
+          throw new Error('Data musammi harus diisi lengkap');
+        }
+        
+        // Untuk row yang ada santri, validasi juga data santri
+        if (row.namaSantri && (!row.marhalahSantri || !row.kelasSantri)) {
+          throw new Error(`Data santri ${row.namaSantri} harus diisi lengkap`);
+        }
+      }
+
+      const firstRow = rows[0];
+      const halaqah = allHalaqah?.find(h => h.HalaqahID === editingHalaqahId);
+      
+      if (!halaqah) {
+        throw new Error('Halaqah tidak ditemukan');
+      }
+
+      // Update atau create musammi
+      let musammiId: string = halaqah.MusammiID;
+      const existingMusammi = allMusammi?.find(
+        m => m.NamaMusammi === firstRow.namaMusammi && m.MarhalahID === firstRow.marhalahMusammi
+      );
+      
+      if (existingMusammi) {
+        musammiId = existingMusammi.MusammiID;
+        // Update musammi jika kelasnya berbeda
+        if (existingMusammi.KelasMusammi !== firstRow.kelasMusammi) {
+          await apiRequest('PUT', `/api/musammi/${musammiId}`, {
+            KelasMusammi: firstRow.kelasMusammi,
+          });
+        }
+      } else {
+        // Create musammi baru
+        const response = await apiRequest('POST', '/api/musammi', {
+          NamaMusammi: firstRow.namaMusammi,
+          MarhalahID: firstRow.marhalahMusammi,
+          KelasMusammi: firstRow.kelasMusammi,
+        });
+        const newMusammi = await response.json();
+        musammiId = newMusammi.MusammiID;
+      }
+
+      // Update halaqah
+      await apiRequest('PUT', `/api/halaqah/${editingHalaqahId}`, {
+        NomorUrutHalaqah: parseInt(firstRow.nomorUrutHalaqah),
+        MarhalahID: firstRow.marhalahMusammi,
+        MusammiID: musammiId,
+        KelasMusammi: firstRow.kelasMusammi,
+      });
+
+      // Get existing members
+      const existingMembersResponse = await fetch(`/api/halaqah-members?halaqahId=${editingHalaqahId}`);
+      const existingMembers: HalaqahMembers[] = await existingMembersResponse.json();
+      const existingMemberIds = new Set(existingMembers.map(m => m.SantriID));
+
+      // Process santri
+      const newMemberIds = new Set<string>();
+      
+      for (const row of rows) {
+        if (!row.namaSantri) continue; // Skip empty rows
+        
+        // Find or create santri
+        let santriId: string | undefined;
+        const existingSantri = allSantri?.find(
+          s => s.NamaSantri === row.namaSantri && s.MarhalahID === row.marhalahSantri && s.Kelas === row.kelasSantri
+        );
+        
+        if (existingSantri) {
+          santriId = existingSantri.SantriID;
+        } else {
+          const response = await apiRequest('POST', '/api/santri', {
+            NamaSantri: row.namaSantri,
+            MarhalahID: row.marhalahSantri,
+            Kelas: row.kelasSantri,
+            Aktif: true,
+          });
+          const newSantri = await response.json();
+          santriId = newSantri.SantriID;
+        }
+
+        if (!santriId) continue;
+
+        newMemberIds.add(santriId);
+
+        // Add to halaqah if not already a member
+        if (!existingMemberIds.has(santriId)) {
+          await apiRequest('POST', '/api/halaqah-members', {
+            HalaqahID: editingHalaqahId,
+            SantriID: santriId,
+            TanggalMulai: new Date().toISOString().split('T')[0],
+          });
+        }
+      }
+
+      // Remove members that are no longer in the list
+      for (const member of existingMembers) {
+        if (!newMemberIds.has(member.SantriID)) {
+          await apiRequest('DELETE', `/api/halaqah-members/${editingHalaqahId}/${member.SantriID}`);
+        }
+      }
+    },
+    onSuccess: () => {
+      toast({ 
+        title: "Berhasil", 
+        description: "Data halaqah berhasil diperbarui" 
+      });
+      setShowEditDialog(false);
+      setEditingHalaqahId("");
+      setEditHalaqahRows([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/halaqah'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/musammi'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/santri'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/halaqah-members'] });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Gagal", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
+  });
+
   const isLoading = loadingHalaqah || loadingMusammi || loadingSantri || loadingLookups;
 
   if (isLoading) {
@@ -813,14 +1046,24 @@ export default function DataHalaqah() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between gap-2">
                     <span>Halaqah {halaqah.nomorUrutHalaqah} - {marhalahName}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => setDeleteHalaqahDialog({open: true, halaqahId: halaqah.halaqahId, nomorUrut: halaqah.nomorUrutHalaqah})}
-                      data-testid={`button-delete-halaqah-${halaqah.halaqahId}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleOpenEditDialog(halaqah.halaqahId)}
+                        data-testid={`button-edit-halaqah-${halaqah.halaqahId}`}
+                      >
+                        <Pencil className="h-4 w-4 text-primary" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => setDeleteHalaqahDialog({open: true, halaqahId: halaqah.halaqahId, nomorUrut: halaqah.nomorUrutHalaqah})}
+                        data-testid={`button-delete-halaqah-${halaqah.halaqahId}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     Musammi: {halaqah.namaMusammi}
@@ -1222,6 +1465,187 @@ export default function DataHalaqah() {
               data-testid="button-submit-tambah"
             >
               {submitHalaqahMutation.isPending ? 'Menyimpan...' : 'Simpan Data'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Edit Halaqah */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-halaqah">
+          <DialogHeader>
+            <DialogTitle>Edit Data Halaqah</DialogTitle>
+            <DialogDescription>
+              Edit data musammi, anggota halaqah, dan kelasnya
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Button Tambah Baris */}
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={addNewEditRow}
+                data-testid="button-add-edit-row"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Anggota
+              </Button>
+            </div>
+
+            {/* Tabel Input Edit */}
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[150px]">Nama Santri</TableHead>
+                    <TableHead className="min-w-[120px]">Marhalah Santri</TableHead>
+                    <TableHead className="min-w-[120px]">Kelas Santri</TableHead>
+                    <TableHead className="min-w-[120px]">No. Halaqah</TableHead>
+                    <TableHead className="min-w-[150px]">Nama Musammi</TableHead>
+                    <TableHead className="min-w-[130px]">Marhalah Musammi</TableHead>
+                    <TableHead className="min-w-[120px]">Kelas Musammi</TableHead>
+                    <TableHead className="w-[60px]">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {editHalaqahRows.map((row) => {
+                    const kelasOptionsSantri = lookups?.kelas.filter(
+                      k => k.MarhalahID === row.marhalahSantri
+                    ) || [];
+                    const kelasOptionsMusammi = lookups?.kelas.filter(
+                      k => k.MarhalahID === row.marhalahMusammi
+                    ) || [];
+
+                    return (
+                      <TableRow key={row.id} data-testid={`row-edit-halaqah-${row.id}`}>
+                        <TableCell>
+                          <Input
+                            value={row.namaSantri}
+                            onChange={(e) => updateEditRow(row.id, 'namaSantri', e.target.value)}
+                            placeholder="Nama santri"
+                            data-testid={`input-edit-nama-santri-${row.id}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.marhalahSantri}
+                            onValueChange={(value) => updateEditRow(row.id, 'marhalahSantri', value)}
+                          >
+                            <SelectTrigger data-testid={`select-edit-marhalah-santri-${row.id}`}>
+                              <SelectValue placeholder="Pilih" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
+                                <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
+                                  {m.NamaMarhalah}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.kelasSantri}
+                            onValueChange={(value) => updateEditRow(row.id, 'kelasSantri', value)}
+                            disabled={!row.marhalahSantri}
+                          >
+                            <SelectTrigger data-testid={`select-edit-kelas-santri-${row.id}`}>
+                              <SelectValue placeholder="Pilih" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {kelasOptionsSantri.map((k) => (
+                                <SelectItem key={k.Kelas} value={k.Kelas}>
+                                  {k.Kelas}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={row.nomorUrutHalaqah}
+                            onChange={(e) => updateEditRow(row.id, 'nomorUrutHalaqah', e.target.value)}
+                            placeholder="Nomor"
+                            type="number"
+                            data-testid={`input-edit-nomor-halaqah-${row.id}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={row.namaMusammi}
+                            onChange={(e) => updateEditRow(row.id, 'namaMusammi', e.target.value)}
+                            placeholder="Nama musammi"
+                            data-testid={`input-edit-nama-musammi-${row.id}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.marhalahMusammi}
+                            onValueChange={(value) => updateEditRow(row.id, 'marhalahMusammi', value)}
+                          >
+                            <SelectTrigger data-testid={`select-edit-marhalah-musammi-${row.id}`}>
+                              <SelectValue placeholder="Pilih" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {lookups?.marhalah.map((m) => (
+                                <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
+                                  {m.NamaMarhalah}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.kelasMusammi}
+                            onValueChange={(value) => updateEditRow(row.id, 'kelasMusammi', value)}
+                            disabled={!row.marhalahMusammi}
+                          >
+                            <SelectTrigger data-testid={`select-edit-kelas-musammi-${row.id}`}>
+                              <SelectValue placeholder="Pilih" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {kelasOptionsMusammi.map((k) => (
+                                <SelectItem key={k.Kelas} value={k.Kelas}>
+                                  {k.Kelas}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteEditRow(row.id)}
+                            data-testid={`button-delete-edit-row-${row.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditDialog(false)}
+              data-testid="button-cancel-edit"
+            >
+              Batal
+            </Button>
+            <Button 
+              onClick={() => submitEditHalaqahMutation.mutate(editHalaqahRows)}
+              disabled={submitEditHalaqahMutation.isPending}
+              data-testid="button-submit-edit"
+            >
+              {submitEditHalaqahMutation.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
             </Button>
           </DialogFooter>
         </DialogContent>
