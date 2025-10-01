@@ -425,8 +425,9 @@ export class GoogleSheetsStorage implements IStorage {
     if (marhalahId) params.append("marhalah", marhalahId);
     if (kelas) params.append("kelas", kelas);
     if (peran) params.append("peran", peran);
+    const queryString = params.toString();
     return this.request<AbsensiReportResponse>(
-      `/absensi/report?${params.toString()}`,
+      queryString ? `/absensi/report?${queryString}` : `/absensi/report`,
     );
   }
 

@@ -1,4 +1,4 @@
-import { Home, Users, ClipboardCheck, BookOpen, Calendar } from "lucide-react";
+import { Home, Users, ClipboardCheck, BookOpen, Calendar, FileText } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +31,11 @@ const menuItems = [
     title: "Kalender & Tugas",
     url: "/kalender",
     icon: Calendar,
+  },
+  {
+    title: "Laporan",
+    url: "/laporan",
+    icon: FileText,
   },
 ];
 

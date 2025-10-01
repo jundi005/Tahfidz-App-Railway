@@ -11,6 +11,7 @@ import Dashboard from "@/pages/Dashboard";
 import DataHalaqah from "@/pages/DataHalaqah";
 import Perkembangan from "@/pages/Perkembangan";
 import Kalender from "@/pages/Kalender";
+import Laporan from "@/pages/Laporan";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/data-halaqah" component={DataHalaqah} />
       <Route path="/perkembangan" component={Perkembangan} />
       <Route path="/kalender" component={Kalender} />
+      <Route path="/laporan" component={Laporan} />
       <Route component={NotFound} />
     </Switch>
   );
