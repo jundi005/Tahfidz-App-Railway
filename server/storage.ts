@@ -123,7 +123,7 @@ export class GoogleSheetsStorage implements IStorage {
     const url =
       baseUrl ||
       process.env.GOOGLE_APPS_SCRIPT_URL ||
-      "https://script.google.com/macros/s/AKfycbyqAabvHyR3MQCgFpWEAOgYwnMjSqTDc7LduVbDARh9DXFQftspLIyS5Nqp-kE0x_cNwg/exec";
+      "https://script.google.com/macros/s/AKfycbwVlwonkTNv76O8aj3VrKYfxRoUePtov5-znbUcfYqsfbkdA6dewBxQ0MGA3SEwMZoyXA/exec";
 
     if (!url || url.trim() === "") {
       throw new Error(
@@ -196,7 +196,7 @@ export class GoogleSheetsStorage implements IStorage {
     // Convert PUT and DELETE to POST with method override
     const actualMethod = options?.method || "GET";
     let fetchOptions = { ...options };
-    
+
     if (actualMethod === "PUT" || actualMethod === "DELETE") {
       url.searchParams.set("_method", actualMethod);
       fetchOptions.method = "POST";
