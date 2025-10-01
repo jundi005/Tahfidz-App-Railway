@@ -95,6 +95,7 @@ export default function DataHalaqah() {
   const [showTambahDialog, setShowTambahDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingHalaqahId, setEditingHalaqahId] = useState<string>("");
+  const [editingMarhalahHalaqah, setEditingMarhalahHalaqah] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State untuk menyimpan status absensi setiap santri dan musammi
@@ -777,6 +778,7 @@ export default function DataHalaqah() {
 
     setEditHalaqahRows(rows);
     setEditingHalaqahId(halaqahId);
+    setEditingMarhalahHalaqah(halaqah.MarhalahID);
     setShowEditDialog(true);
   };
 
@@ -878,7 +880,7 @@ export default function DataHalaqah() {
       // Update halaqah
       await apiRequest('PUT', `/api/halaqah/${editingHalaqahId}`, {
         NomorUrutHalaqah: parseInt(firstRow.nomorUrutHalaqah),
-        MarhalahID: firstRow.marhalahMusammi,
+        MarhalahID: editingMarhalahHalaqah,
         MusammiID: musammiId,
         KelasMusammi: firstRow.kelasMusammi,
       });
@@ -941,6 +943,7 @@ export default function DataHalaqah() {
       });
       setShowEditDialog(false);
       setEditingHalaqahId("");
+      setEditingMarhalahHalaqah("");
       setEditHalaqahRows([]);
       queryClient.invalidateQueries({ queryKey: ['/api/halaqah'] });
       queryClient.invalidateQueries({ queryKey: ['/api/musammi'] });
@@ -1481,6 +1484,26 @@ export default function DataHalaqah() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Select Marhalah Halaqah */}
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium min-w-[120px]">Marhalah Halaqah:</label>
+              <Select
+                value={editingMarhalahHalaqah}
+                onValueChange={setEditingMarhalahHalaqah}
+              >
+                <SelectTrigger className="w-[200px]" data-testid="select-edit-marhalah-halaqah">
+                  <SelectValue placeholder="Pilih marhalah" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
+                    <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
+                      {m.NamaMarhalah}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Button Tambah Baris */}
             <div className="flex gap-2">
               <Button 

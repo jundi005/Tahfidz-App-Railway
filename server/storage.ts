@@ -878,7 +878,10 @@ export class MemStorage implements IStorage {
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
-    const today = new Date().toISOString().split("T")[0];
+    // Get today's date in local timezone (Indonesia)
+    const now = new Date();
+    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    const today = localDate.toISOString().split("T")[0];
     const totalSantri = Array.from(this.santri.values()).filter(
       (s) => s.Aktif,
     ).length;
