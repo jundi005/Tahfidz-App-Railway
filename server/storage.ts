@@ -192,11 +192,21 @@ export class GoogleSheetsStorage implements IStorage {
       });
     }
 
+    // Google Apps Script only supports GET and POST
+    // Convert PUT and DELETE to POST with method override
+    const actualMethod = options?.method || "GET";
+    let fetchOptions = { ...options };
+    
+    if (actualMethod === "PUT" || actualMethod === "DELETE") {
+      url.searchParams.set("_method", actualMethod);
+      fetchOptions.method = "POST";
+    }
+
     const response = await fetch(url.toString(), {
-      ...options,
+      ...fetchOptions,
       headers: {
         "Content-Type": "application/json",
-        ...options?.headers,
+        ...fetchOptions?.headers,
       },
     });
 

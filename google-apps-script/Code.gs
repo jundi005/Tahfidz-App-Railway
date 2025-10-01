@@ -1046,6 +1046,16 @@ function doGet(e) {
 
 function doPost(e) {
   try {
+    // Check for method override
+    const methodOverride = e.parameter._method || '';
+    
+    if (methodOverride === 'PUT') {
+      return doPut(e);
+    }
+    else if (methodOverride === 'DELETE') {
+      return doDelete(e);
+    }
+    
     const path = e.parameter.path || '';
     const body = JSON.parse(e.postData.contents);
     
