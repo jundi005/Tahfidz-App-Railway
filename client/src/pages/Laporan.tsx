@@ -13,6 +13,7 @@ import type { AbsensiReportResponse, LookupsResponse } from "@shared/schema";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 export default function Laporan() {
   const [tanggal, setTanggal] = useState<string>("");
@@ -330,6 +331,51 @@ export default function Laporan() {
         <Card>
           <CardContent className="pt-6">
             <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !error && reportData && reportData.total > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribusi Kehadiran</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={[
+                  { name: 'Hadir', value: reportData.stats.hadir, fill: '#22c55e' },
+                  { name: 'Sakit', value: reportData.stats.sakit, fill: '#eab308' },
+                  { name: 'Izin', value: reportData.stats.izin, fill: '#3b82f6' },
+                  { name: 'Alpa', value: reportData.stats.alpa, fill: '#ef4444' },
+                  { name: 'Terlambat', value: reportData.stats.terlambat, fill: '#f97316' },
+                ]}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="name" className="stroke-muted-foreground" />
+                <YAxis className="stroke-muted-foreground" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  {[
+                    { name: 'Hadir', value: reportData.stats.hadir, fill: '#22c55e' },
+                    { name: 'Sakit', value: reportData.stats.sakit, fill: '#eab308' },
+                    { name: 'Izin', value: reportData.stats.izin, fill: '#3b82f6' },
+                    { name: 'Alpa', value: reportData.stats.alpa, fill: '#ef4444' },
+                    { name: 'Terlambat', value: reportData.stats.terlambat, fill: '#f97316' },
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       )}
