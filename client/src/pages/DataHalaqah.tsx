@@ -263,6 +263,66 @@ export default function DataHalaqah() {
     }));
   };
 
+  // Helper function untuk mapping marhalah name ke ID
+  const mapMarhalahToId = (marhalahInput: string): string => {
+    if (!marhalahInput) return "";
+    
+    const normalized = marhalahInput.trim().toUpperCase();
+    
+    // Cek apakah sudah dalam format ID yang valid
+    if (normalized === 'MUT' || normalized === 'ALI' || normalized === 'JAM') {
+      return normalized;
+    }
+    
+    // Mapping dari nama lengkap atau alias ke ID
+    if (normalized.includes('MUTAWASSITOH') || normalized === 'MTS') {
+      return 'MUT';
+    }
+    if (normalized.includes('ALIYAH') || normalized === 'MA' || normalized === 'ALI') {
+      return 'ALI';
+    }
+    if (normalized.includes('JAMI') || normalized.includes("JAMI'")) {
+      return 'JAM';
+    }
+    
+    // Cek apakah cocok dengan nama di lookups
+    const matchedMarhalah = lookups?.marhalah.find(
+      m => m.NamaMarhalah.toUpperCase() === normalized
+    );
+    
+    if (matchedMarhalah) {
+      return matchedMarhalah.MarhalahID;
+    }
+    
+    // Return empty string jika tidak cocok (bukan nilai asli)
+    return "";
+  };
+
+  // Helper function untuk validasi kelas berdasarkan marhalah
+  const validateAndGetKelas = (kelasInput: string, marhalahId: string): string => {
+    if (!kelasInput || !lookups || !marhalahId) return "";
+    
+    const normalizedInput = kelasInput.trim();
+    
+    // Cek apakah kelas valid untuk marhalah ini (exact match)
+    const exactMatch = lookups.kelas.find(
+      k => k.MarhalahID === marhalahId && k.Kelas === normalizedInput
+    );
+    
+    if (exactMatch) return normalizedInput;
+    
+    // Cek case-insensitive exact match
+    const caseInsensitiveMatch = lookups.kelas.find(
+      k => k.MarhalahID === marhalahId && 
+      k.Kelas.toLowerCase() === normalizedInput.toLowerCase()
+    );
+    
+    if (caseInsensitiveMatch) return caseInsensitiveMatch.Kelas;
+    
+    // Return empty string jika tidak ada yang cocok
+    return "";
+  };
+
   // Fungsi untuk handle upload CSV
   const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -280,6 +340,7 @@ export default function DataHalaqah() {
         
         const newRows: HalaqahRow[] = [];
         const errors: string[] = [];
+        const warnings: string[] = [];
         
         dataLines.forEach((line, index) => {
           // Trim the line first
@@ -294,13 +355,36 @@ export default function DataHalaqah() {
             return;
           }
           
-          const [namaSantri, kelasSantri, marhalahSantri, nomorUrutHalaqah, namaMusammi, marhalahMusammi, kelasMusammi] = columns;
+          const [namaSantri, kelasSantriRaw, marhalahSantriRaw, nomorUrutHalaqah, namaMusammi, marhalahMusammiRaw, kelasMusammiRaw] = columns;
           
           // Validasi nomor halaqah
           const nomorParsed = parseInt(nomorUrutHalaqah);
           if (isNaN(nomorParsed) || nomorParsed <= 0) {
             errors.push(`Baris ${index + 2}: Nomor halaqah "${nomorUrutHalaqah}" tidak valid`);
             return;
+          }
+          
+          // Map marhalah ke ID yang benar
+          const marhalahSantri = mapMarhalahToId(marhalahSantriRaw);
+          const marhalahMusammi = mapMarhalahToId(marhalahMusammiRaw);
+          
+          // Validasi marhalah
+          if (!marhalahSantri && marhalahSantriRaw) {
+            warnings.push(`Baris ${index + 2}: Marhalah santri "${marhalahSantriRaw}" tidak dikenali (gunakan MUT atau ALI), akan dikosongkan`);
+          }
+          if (!marhalahMusammi && marhalahMusammiRaw) {
+            warnings.push(`Baris ${index + 2}: Marhalah musammi "${marhalahMusammiRaw}" tidak dikenali (gunakan MUT atau ALI), akan dikosongkan`);
+          }
+          
+          // Validasi dan map kelas
+          const kelasSantri = validateAndGetKelas(kelasSantriRaw, marhalahSantri);
+          const kelasMusammi = validateAndGetKelas(kelasMusammiRaw, marhalahMusammi);
+          
+          if (kelasSantriRaw && !kelasSantri) {
+            warnings.push(`Baris ${index + 2}: Kelas santri "${kelasSantriRaw}" tidak valid untuk marhalah ${marhalahSantri || 'yang dipilih'}, akan dikosongkan`);
+          }
+          if (kelasMusammiRaw && !kelasMusammi) {
+            warnings.push(`Baris ${index + 2}: Kelas musammi "${kelasMusammiRaw}" tidak valid untuk marhalah ${marhalahMusammi || 'yang dipilih'}, akan dikosongkan`);
           }
           
           newRows.push({
@@ -323,12 +407,20 @@ export default function DataHalaqah() {
           });
         }
         
-        if (newRows.length > 0) {
-          setHalaqahRows(newRows);
+        if (warnings.length > 0 && newRows.length > 0) {
+          toast({
+            title: "Data Dimuat dengan Penyesuaian",
+            description: `${newRows.length} baris dimuat. ${warnings.length} penyesuaian dilakukan. Periksa data sebelum menyimpan.`,
+          });
+        } else if (newRows.length > 0) {
           toast({
             title: "Berhasil",
             description: `${newRows.length} baris data berhasil dimuat dari CSV`
           });
+        }
+        
+        if (newRows.length > 0) {
+          setHalaqahRows(newRows);
         } else if (errors.length === 0) {
           toast({
             title: "Gagal",
