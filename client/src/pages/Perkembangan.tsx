@@ -100,6 +100,10 @@ export default function Perkembangan() {
     queryKey: ['/api/murojaah', { bulan: selectedMonth, marhalah: selectedMarhalah === 'ALL' ? '' : selectedMarhalah }],
   });
 
+  const { data: penambahanData, isLoading: loadingPenambahan } = useQuery<PenambahanHafalan[]>({
+    queryKey: ['/api/penambahan', { bulan: selectedMonth, marhalah: selectedMarhalah === 'ALL' ? '' : selectedMarhalah }],
+  });
+
   const { data: allSantri } = useQuery<Santri[]>({
     queryKey: ['/api/santri'],
   });
@@ -152,6 +156,7 @@ export default function Perkembangan() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/hafalan'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/penambahan'] });
       toast({ 
         title: "Berhasil", 
         description: "Penambahan hafalan berhasil disimpan dan hafalan bulanan telah diperbarui",
@@ -320,6 +325,8 @@ export default function Perkembangan() {
                         <TableHead>Nama Santri</TableHead>
                         <TableHead>Kelas</TableHead>
                         <TableHead>Marhalah</TableHead>
+                        <TableHead>Halaqah</TableHead>
+                        <TableHead>Musammi</TableHead>
                         <TableHead>Hafalan (Juz)</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -327,19 +334,23 @@ export default function Perkembangan() {
                       {hafalanData && hafalanData.length > 0 ? (
                         hafalanData.map((h) => {
                           const santri = allSantri?.find(s => s.SantriID === h.SantriID);
+                          const halaqah = allHalaqah?.find(ha => ha.HalaqahID === h.HalaqahID);
+                          const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
                           return (
                             <TableRow key={h.RekapID} data-testid={`row-hafalan-${h.RekapID}`}>
                               <TableCell>{h.Bulan}</TableCell>
                               <TableCell className="font-medium">{santri?.NamaSantri || 'N/A'}</TableCell>
                               <TableCell>{h.Kelas}</TableCell>
                               <TableCell>{lookups?.marhalah.find(m => m.MarhalahID === h.MarhalahID)?.NamaMarhalah}</TableCell>
+                              <TableCell>{halaqah?.NomorUrutHalaqah || 'N/A'}</TableCell>
+                              <TableCell>{musammi?.NamaMusammi || 'N/A'}</TableCell>
                               <TableCell className="font-mono">{h.JumlahHafalan.toFixed(1)}</TableCell>
                             </TableRow>
                           );
                         })
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center text-muted-foreground">
                             Tidak ada data hafalan untuk bulan {selectedMonth}
                           </TableCell>
                         </TableRow>
@@ -380,6 +391,8 @@ export default function Perkembangan() {
                         <TableHead>Nama Santri</TableHead>
                         <TableHead>Kelas</TableHead>
                         <TableHead>Marhalah</TableHead>
+                        <TableHead>Halaqah</TableHead>
+                        <TableHead>Musammi</TableHead>
                         <TableHead>Murojaah (Juz)</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -387,19 +400,23 @@ export default function Perkembangan() {
                       {murojaahData && murojaahData.length > 0 ? (
                         murojaahData.map((m) => {
                           const santri = allSantri?.find(s => s.SantriID === m.SantriID);
+                          const halaqah = allHalaqah?.find(ha => ha.HalaqahID === m.HalaqahID);
+                          const musammi = allMusammi?.find(mu => mu.MusammiID === m.MusammiID);
                           return (
                             <TableRow key={m.MurojaahID} data-testid={`row-murojaah-${m.MurojaahID}`}>
                               <TableCell>{m.Bulan}</TableCell>
                               <TableCell className="font-medium">{santri?.NamaSantri || 'N/A'}</TableCell>
                               <TableCell>{m.Kelas}</TableCell>
                               <TableCell>{lookups?.marhalah.find(mar => mar.MarhalahID === m.MarhalahID)?.NamaMarhalah}</TableCell>
+                              <TableCell>{halaqah?.NomorUrutHalaqah || 'N/A'}</TableCell>
+                              <TableCell>{musammi?.NamaMusammi || 'N/A'}</TableCell>
                               <TableCell className="font-mono">{m.JumlahMurojaah.toFixed(1)}</TableCell>
                             </TableRow>
                           );
                         })
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center text-muted-foreground">
                             Tidak ada data murojaah untuk bulan {selectedMonth}
                           </TableCell>
                         </TableRow>
@@ -420,17 +437,71 @@ export default function Perkembangan() {
             </Button>
           </div>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Penambahan Hafalan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Input penambahan hafalan dalam format halaman. Sistem akan otomatis mengonversi ke juz
-                (20 halaman = 1 juz) dan menambahkannya ke data hafalan bulanan.
-              </p>
-            </CardContent>
-          </Card>
+          {loadingPenambahan ? (
+            <Card>
+              <CardContent className="pt-6">
+                <Skeleton className="h-64 w-full" />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Penambahan Hafalan</CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Input penambahan hafalan dalam format halaman. Sistem akan otomatis mengonversi ke juz
+                  (20 halaman = 1 juz) dan menambahkannya ke data hafalan bulanan.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Bulan</TableHead>
+                        <TableHead>Nama Santri</TableHead>
+                        <TableHead>Kelas</TableHead>
+                        <TableHead>Marhalah</TableHead>
+                        <TableHead>Halaqah</TableHead>
+                        <TableHead>Musammi</TableHead>
+                        <TableHead>Penambahan (Halaman)</TableHead>
+                        <TableHead>Penambahan (Juz)</TableHead>
+                        <TableHead>Catatan</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {penambahanData && penambahanData.length > 0 ? (
+                        penambahanData.map((p) => {
+                          const santri = allSantri?.find(s => s.SantriID === p.SantriID);
+                          const halaqah = allHalaqah?.find(ha => ha.HalaqahID === p.HalaqahID);
+                          const musammi = allMusammi?.find(m => m.MusammiID === p.MusammiID);
+                          const juz = (p.JumlahPenambahan / 20).toFixed(2);
+                          return (
+                            <TableRow key={p.PenambahanID} data-testid={`row-penambahan-${p.PenambahanID}`}>
+                              <TableCell>{p.Bulan}</TableCell>
+                              <TableCell className="font-medium">{santri?.NamaSantri || 'N/A'}</TableCell>
+                              <TableCell>{p.Kelas}</TableCell>
+                              <TableCell>{lookups?.marhalah.find(m => m.MarhalahID === p.MarhalahID)?.NamaMarhalah}</TableCell>
+                              <TableCell>{halaqah?.NomorUrutHalaqah || 'N/A'}</TableCell>
+                              <TableCell>{musammi?.NamaMusammi || 'N/A'}</TableCell>
+                              <TableCell className="font-mono">{p.JumlahPenambahan}</TableCell>
+                              <TableCell className="font-mono">{juz}</TableCell>
+                              <TableCell>{p.Catatan || '-'}</TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center text-muted-foreground">
+                            Tidak ada data penambahan hafalan untuk bulan {selectedMonth}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

@@ -199,26 +199,41 @@ export default function DataHalaqah() {
     return halaqahWithDetails.filter(h => h.marhalahId === selectedMarhalah);
   }, [halaqahWithDetails, selectedMarhalah]);
 
-  // Clear and set default "HADIR" for all musammi and santri when marhalah changes
+  // Initialize default "HADIR" for new musammi and santri when data loads or marhalah changes
   useEffect(() => {
-    if (absensiMarhalah && absensiMarhalah !== "all") {
+    if (absensiMarhalah && absensiMarhalah !== "all" && halaqahWithDetails.length > 0) {
       const filteredForAbsensi = halaqahWithDetails.filter(h => h.marhalahId === absensiMarhalah);
       
-      // Clear old state and set default for musammi
-      const newMusammiState: Record<string, string> = {};
+      // Collect required IDs
+      const requiredHalaqahIds = new Set<string>();
+      const requiredSantriIds = new Set<string>();
       filteredForAbsensi.forEach(halaqah => {
-        newMusammiState[halaqah.halaqahId] = "HADIR";
-      });
-      setMusammiAbsensiState(newMusammiState);
-      
-      // Clear old state and set default for santri
-      const newSantriState: Record<string, string> = {};
-      filteredForAbsensi.forEach(halaqah => {
+        requiredHalaqahIds.add(halaqah.halaqahId);
         halaqah.santriList.forEach(santri => {
-          newSantriState[santri.santriId] = "HADIR";
+          requiredSantriIds.add(santri.santriId);
         });
       });
-      setAbsensiState(newSantriState);
+      
+      // Merge with existing state - only add missing keys, preserve existing values
+      setMusammiAbsensiState(prev => {
+        const next = { ...prev };
+        Array.from(requiredHalaqahIds).forEach(halaqahId => {
+          if (!(halaqahId in next)) {
+            next[halaqahId] = "HADIR";
+          }
+        });
+        return next;
+      });
+      
+      setAbsensiState(prev => {
+        const next = { ...prev };
+        Array.from(requiredSantriIds).forEach(santriId => {
+          if (!(santriId in next)) {
+            next[santriId] = "HADIR";
+          }
+        });
+        return next;
+      });
     }
   }, [absensiMarhalah, halaqahWithDetails]);
 

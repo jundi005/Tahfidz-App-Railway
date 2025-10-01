@@ -101,6 +101,7 @@ export interface IStorage {
   deleteMurojaahBulanan(id: string): Promise<void>;
 
   // Penambahan Hafalan
+  getPenambahanHafalan(bulan?: string, marhalahId?: string): Promise<PenambahanHafalan[]>;
   createPenambahanHafalan(
     penambahan: InsertPenambahanHafalan,
   ): Promise<PenambahanHafalan>;
@@ -468,6 +469,16 @@ export class GoogleSheetsStorage implements IStorage {
 
   async deleteMurojaahBulanan(id: string): Promise<void> {
     await this.request(`/murojaah/${id}`, { method: "DELETE" });
+  }
+
+  async getPenambahanHafalan(bulan?: string, marhalahId?: string): Promise<PenambahanHafalan[]> {
+    const params = new URLSearchParams();
+    if (bulan) params.append("bulan", bulan);
+    if (marhalahId) params.append("marhalah", marhalahId);
+    const queryString = params.toString();
+    return this.request<PenambahanHafalan[]>(
+      queryString ? `/penambahan?${queryString}` : "/penambahan"
+    );
   }
 
   async createPenambahanHafalan(
@@ -838,6 +849,20 @@ export class MemStorage implements IStorage {
     this.murojaahBulanan.delete(id);
   }
 
+  async getPenambahanHafalan(bulan?: string, marhalahId?: string): Promise<PenambahanHafalan[]> {
+    let result = [...this.penambahanHafalan];
+    
+    if (bulan) {
+      result = result.filter((p) => p.Bulan === bulan);
+    }
+    
+    if (marhalahId) {
+      result = result.filter((p) => p.MarhalahID === marhalahId);
+    }
+    
+    return result;
+  }
+
   async createPenambahanHafalan(
     penambahan: InsertPenambahanHafalan,
   ): Promise<PenambahanHafalan> {
@@ -882,6 +907,15 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     const today = localDate.toISOString().split("T")[0];
+    
+    // Log for debugging
+    console.log('[getDashboardStats] Today date:', today);
+    console.log('[getDashboardStats] Total absensi records:', this.absensiSantri.length);
+    if (this.absensiSantri.length > 0) {
+      console.log('[getDashboardStats] Sample absensi dates:', 
+        this.absensiSantri.slice(0, 3).map(a => a.Tanggal)
+      );
+    }
     const totalSantri = Array.from(this.santri.values()).filter(
       (s) => s.Aktif,
     ).length;

@@ -445,6 +445,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========== PENAMBAHAN HAFALAN ==========
+  app.get("/api/penambahan", async (req, res) => {
+    try {
+      const bulan = req.query.bulan as string | undefined;
+      const marhalahId = req.query.marhalah as string | undefined;
+      const penambahan = await storage.getPenambahanHafalan(bulan, marhalahId);
+      res.json(penambahan);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/penambahan", async (req, res) => {
     try {
       const validated = insertPenambahanHafalanSchema.parse(req.body);
