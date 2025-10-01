@@ -94,8 +94,51 @@ export class GoogleSheetsStorage implements IStorage {
   }
 
   private async request<T>(endpoint: string, options?: RequestInit & { allowUndefined?: boolean }): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    const response = await fetch(url, {
+    // Parse endpoint to extract path, ID (if present), and query parameters
+    const [pathPart, queryString] = endpoint.split('?');
+    
+    // Remove leading slash and split path to extract ID if present
+    const cleanPath = pathPart.replace(/^\//, '');
+    const pathSegments = cleanPath.split('/');
+    
+    // Build URL with path as query parameter for Google Apps Script
+    const url = new URL(this.baseUrl);
+    
+    // Set the base path (without ID)
+    if (pathSegments.length === 1) {
+      // Simple path like 'lookups' or 'halaqah'
+      url.searchParams.set('path', pathSegments[0]);
+    } else if (pathSegments.length === 2) {
+      // Path with ID like 'halaqah/123' or path with subpath like 'dashboard/stats'
+      // Check if second segment looks like an ID (UUID) or a subpath
+      const secondSegment = pathSegments[1];
+      if (secondSegment.length > 20 || secondSegment.includes('-')) {
+        // Likely an ID
+        url.searchParams.set('path', pathSegments[0]);
+        url.searchParams.set('id', secondSegment);
+      } else {
+        // Likely a subpath like 'dashboard/stats'
+        url.searchParams.set('path', cleanPath);
+      }
+    } else if (pathSegments.length === 3) {
+      // Path like 'halaqah-members/halaqahId/santriId'
+      url.searchParams.set('path', pathSegments[0]);
+      url.searchParams.set('id', pathSegments[1]);
+      url.searchParams.set('santriId', pathSegments[2]);
+    } else {
+      // Fallback: use the full clean path
+      url.searchParams.set('path', cleanPath);
+    }
+    
+    // Add any additional query parameters from the endpoint
+    if (queryString) {
+      const params = new URLSearchParams(queryString);
+      params.forEach((value, key) => {
+        url.searchParams.set(key, value);
+      });
+    }
+    
+    const response = await fetch(url.toString(), {
       ...options,
       headers: {
         'Content-Type': 'application/json',
