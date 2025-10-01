@@ -98,6 +98,10 @@ export default function DataHalaqah() {
   // State untuk menyimpan status absensi setiap santri
   const [absensiState, setAbsensiState] = useState<Record<string, string>>({});
   
+  // State untuk konfirmasi hapus
+  const [deleteHalaqahDialog, setDeleteHalaqahDialog] = useState<{open: boolean, halaqahId: string, nomorUrut: number}>({open: false, halaqahId: '', nomorUrut: 0});
+  const [deleteMemberDialog, setDeleteMemberDialog] = useState<{open: boolean, halaqahId: string, santriId: string, namaSantri: string}>({open: false, halaqahId: '', santriId: '', namaSantri: ''});
+  
   // State untuk data tabel tambah halaqah
   const [halaqahRows, setHalaqahRows] = useState<HalaqahRow[]>([
     {
@@ -484,6 +488,51 @@ export default function DataHalaqah() {
     }
   });
 
+  // Mutation untuk hapus halaqah
+  const deleteHalaqahMutation = useMutation({
+    mutationFn: async (halaqahId: string) => {
+      return await apiRequest('DELETE', `/api/halaqah/${halaqahId}`);
+    },
+    onSuccess: () => {
+      toast({ 
+        title: "Berhasil", 
+        description: "Halaqah berhasil dihapus" 
+      });
+      setDeleteHalaqahDialog({open: false, halaqahId: '', nomorUrut: 0});
+      queryClient.invalidateQueries({ queryKey: ['/api/halaqah'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/halaqah-members'] });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Gagal", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Mutation untuk hapus member dari halaqah
+  const deleteMemberMutation = useMutation({
+    mutationFn: async ({halaqahId, santriId}: {halaqahId: string, santriId: string}) => {
+      return await apiRequest('DELETE', `/api/halaqah-members/${halaqahId}/${santriId}`);
+    },
+    onSuccess: () => {
+      toast({ 
+        title: "Berhasil", 
+        description: "Santri berhasil dihapus dari halaqah" 
+      });
+      setDeleteMemberDialog({open: false, halaqahId: '', santriId: '', namaSantri: ''});
+      queryClient.invalidateQueries({ queryKey: ['/api/halaqah-members'] });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Gagal", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
+  });
+
   const handleUpdateAbsensi = (santriId: string, statusId: string) => {
     setAbsensiState(prev => ({
       ...prev,
@@ -626,6 +675,14 @@ export default function DataHalaqah() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between gap-2">
                     <span>Halaqah {halaqah.nomorUrutHalaqah} - {marhalahName}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => setDeleteHalaqahDialog({open: true, halaqahId: halaqah.halaqahId, nomorUrut: halaqah.nomorUrutHalaqah})}
+                      data-testid={`button-delete-halaqah-${halaqah.halaqahId}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     Musammi: {halaqah.namaMusammi}
@@ -648,6 +705,14 @@ export default function DataHalaqah() {
                               <p className="font-medium">{santri.namaSantri}</p>
                               <p className="text-sm text-muted-foreground">Kelas: {santri.kelas}</p>
                             </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => setDeleteMemberDialog({open: true, halaqahId: halaqah.halaqahId, santriId: santri.santriId, namaSantri: santri.namaSantri})}
+                              data-testid={`button-delete-member-${santri.santriId}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -982,6 +1047,64 @@ export default function DataHalaqah() {
               data-testid="button-submit-tambah"
             >
               {submitHalaqahMutation.isPending ? 'Menyimpan...' : 'Simpan Data'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Konfirmasi Hapus Halaqah */}
+      <Dialog open={deleteHalaqahDialog.open} onOpenChange={(open) => setDeleteHalaqahDialog({...deleteHalaqahDialog, open})}>
+        <DialogContent data-testid="dialog-delete-halaqah">
+          <DialogHeader>
+            <DialogTitle>Hapus Halaqah?</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menghapus Halaqah {deleteHalaqahDialog.nomorUrut}? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteHalaqahDialog({open: false, halaqahId: '', nomorUrut: 0})}
+              data-testid="button-cancel-delete-halaqah"
+            >
+              Batal
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => deleteHalaqahMutation.mutate(deleteHalaqahDialog.halaqahId)}
+              disabled={deleteHalaqahMutation.isPending}
+              data-testid="button-confirm-delete-halaqah"
+            >
+              {deleteHalaqahMutation.isPending ? 'Menghapus...' : 'Hapus'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Konfirmasi Hapus Santri dari Halaqah */}
+      <Dialog open={deleteMemberDialog.open} onOpenChange={(open) => setDeleteMemberDialog({...deleteMemberDialog, open})}>
+        <DialogContent data-testid="dialog-delete-member">
+          <DialogHeader>
+            <DialogTitle>Hapus Santri dari Halaqah?</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menghapus {deleteMemberDialog.namaSantri} dari halaqah ini? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteMemberDialog({open: false, halaqahId: '', santriId: '', namaSantri: ''})}
+              data-testid="button-cancel-delete-member"
+            >
+              Batal
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => deleteMemberMutation.mutate({halaqahId: deleteMemberDialog.halaqahId, santriId: deleteMemberDialog.santriId})}
+              disabled={deleteMemberMutation.isPending}
+              data-testid="button-confirm-delete-member"
+            >
+              {deleteMemberMutation.isPending ? 'Menghapus...' : 'Hapus'}
             </Button>
           </DialogFooter>
         </DialogContent>
