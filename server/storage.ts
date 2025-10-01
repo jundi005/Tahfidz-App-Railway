@@ -22,6 +22,7 @@ import {
   type InsertTasks,
   type DashboardStats,
   type LookupsResponse,
+  type AbsensiReportResponse,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -73,6 +74,12 @@ export interface IStorage {
     marhalahId?: string,
     waktuId?: string,
   ): Promise<AbsensiMusammi[]>;
+  getAbsensiReport(
+    tanggal?: string,
+    marhalahId?: string,
+    kelas?: string,
+    peran?: string,
+  ): Promise<AbsensiReportResponse>;
 
   // Hafalan
   getHafalanBulanan(
@@ -404,6 +411,22 @@ export class GoogleSheetsStorage implements IStorage {
     if (waktuId) params.append("waktu", waktuId);
     return this.request<AbsensiMusammi[]>(
       `/absensi/musammi?${params.toString()}`,
+    );
+  }
+
+  async getAbsensiReport(
+    tanggal?: string,
+    marhalahId?: string,
+    kelas?: string,
+    peran?: string,
+  ): Promise<AbsensiReportResponse> {
+    const params = new URLSearchParams();
+    if (tanggal) params.append("tanggal", tanggal);
+    if (marhalahId) params.append("marhalah", marhalahId);
+    if (kelas) params.append("kelas", kelas);
+    if (peran) params.append("peran", peran);
+    return this.request<AbsensiReportResponse>(
+      `/absensi/report?${params.toString()}`,
     );
   }
 
@@ -771,6 +794,89 @@ export class MemStorage implements IStorage {
       filtered = filtered.filter((a) => a.MarhalahID === marhalahId);
     if (waktuId) filtered = filtered.filter((a) => a.WaktuID === waktuId);
     return filtered;
+  }
+
+  async getAbsensiReport(
+    tanggal?: string,
+    marhalahId?: string,
+    kelas?: string,
+    peran?: string,
+  ): Promise<AbsensiReportResponse> {
+    let reportData: any[] = [];
+
+    if (!peran || peran === 'santri' || peran === 'all') {
+      let santriAbsensi = tanggal
+        ? this.absensiSantri.filter((a) => a.Tanggal === tanggal)
+        : this.absensiSantri;
+      
+      if (marhalahId) {
+        santriAbsensi = santriAbsensi.filter((a) => a.MarhalahID === marhalahId);
+      }
+
+      santriAbsensi.forEach((absen) => {
+        const santri = this.santri.get(absen.SantriID);
+        if (santri) {
+          if (kelas && santri.Kelas !== kelas) return;
+          reportData.push({
+            id: absen.AbsensiSantriID,
+            tanggal: absen.Tanggal,
+            marhalahId: absen.MarhalahID,
+            waktuId: absen.WaktuID,
+            halaqahId: absen.HalaqahID,
+            personId: absen.SantriID,
+            statusId: absen.StatusID,
+            keterangan: absen.Keterangan || '',
+            peran: 'Santri',
+            nama: santri.NamaSantri,
+            kelas: santri.Kelas,
+          });
+        }
+      });
+    }
+
+    if (!peran || peran === 'musammi' || peran === 'all') {
+      let musammiAbsensi = tanggal
+        ? this.absensiMusammi.filter((a) => a.Tanggal === tanggal)
+        : this.absensiMusammi;
+      
+      if (marhalahId) {
+        musammiAbsensi = musammiAbsensi.filter((a) => a.MarhalahID === marhalahId);
+      }
+
+      musammiAbsensi.forEach((absen) => {
+        const musammi = this.musammi.get(absen.MusammiID);
+        if (musammi) {
+          if (kelas && musammi.KelasMusammi !== kelas) return;
+          reportData.push({
+            id: absen.AbsensiMusammiID,
+            tanggal: absen.Tanggal,
+            marhalahId: absen.MarhalahID,
+            waktuId: absen.WaktuID,
+            halaqahId: absen.HalaqahID,
+            personId: absen.MusammiID,
+            statusId: absen.StatusID,
+            keterangan: absen.Keterangan || '',
+            peran: 'Musammi',
+            nama: musammi.NamaMusammi,
+            kelas: musammi.KelasMusammi,
+          });
+        }
+      });
+    }
+
+    const stats = {
+      hadir: reportData.filter((a) => a.statusId === 'HADIR').length,
+      sakit: reportData.filter((a) => a.statusId === 'SAKIT').length,
+      izin: reportData.filter((a) => a.statusId === 'IZIN').length,
+      alpa: reportData.filter((a) => a.statusId === 'ALPA').length,
+      terlambat: reportData.filter((a) => a.statusId === 'TERLAMBAT').length,
+    };
+
+    return {
+      data: reportData,
+      stats,
+      total: reportData.length,
+    };
   }
 
   async getHafalanBulanan(

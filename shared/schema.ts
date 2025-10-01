@@ -273,3 +273,33 @@ export interface HalaqahWithDetails {
   namaMusammi: string;
   santriList: SantriWithKelas[];
 }
+
+// ============= REPORT TYPES =============
+
+export interface AbsensiReportItem {
+  id: string;
+  tanggal: string;
+  marhalahId: string;
+  waktuId: string;
+  halaqahId: string;
+  personId: string;
+  statusId: string;
+  keterangan: string;
+  peran: string;
+  nama: string;
+  kelas: string;
+}
+
+export interface AbsensiDistributionStats {
+  hadir: number;
+  sakit: number;
+  izin: number;
+  alpa: number;
+  terlambat: number;
+}
+
+export interface AbsensiReportResponse {
+  data: AbsensiReportItem[];
+  stats: AbsensiDistributionStats;
+  total: number;
+}

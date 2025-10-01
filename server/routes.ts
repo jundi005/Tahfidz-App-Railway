@@ -334,6 +334,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/absensi/report", async (req, res) => {
+    try {
+      const { tanggal, marhalah, kelas, peran } = req.query;
+      const report = await storage.getAbsensiReport(
+        tanggal as string,
+        marhalah as string,
+        kelas as string,
+        peran as string
+      );
+      res.json(report);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ========== HAFALAN ==========
   app.get("/api/hafalan", async (req, res) => {
     try {
