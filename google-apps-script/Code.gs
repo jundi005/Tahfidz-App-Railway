@@ -887,6 +887,157 @@ function getTaskById(id) {
   return null;
 }
 
+// ========== ABSENSI QUERY ==========
+
+function getAbsensiSantri(params) {
+  const sheet = getSheet('AbsensiSantri');
+  const data = sheet.getDataRange().getValues().slice(1);
+  let absensi = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    const item = {
+      AbsensiSantriID: data[i][0],
+      Tanggal: data[i][1],
+      MarhalahID: data[i][2],
+      WaktuID: data[i][3],
+      HalaqahID: data[i][4],
+      SantriID: data[i][5],
+      StatusID: data[i][6],
+      Keterangan: data[i][7] || ''
+    };
+    
+    if (params.tanggal && item.Tanggal !== params.tanggal) continue;
+    if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
+    if (params.waktu && item.WaktuID !== params.waktu) continue;
+    
+    absensi.push(item);
+  }
+  
+  return absensi;
+}
+
+function getAbsensiMusammi(params) {
+  const sheet = getSheet('AbsensiMusammi');
+  const data = sheet.getDataRange().getValues().slice(1);
+  let absensi = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    const item = {
+      AbsensiMusammiID: data[i][0],
+      Tanggal: data[i][1],
+      MarhalahID: data[i][2],
+      WaktuID: data[i][3],
+      HalaqahID: data[i][4],
+      MusammiID: data[i][5],
+      StatusID: data[i][6],
+      Keterangan: data[i][7] || ''
+    };
+    
+    if (params.tanggal && item.Tanggal !== params.tanggal) continue;
+    if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
+    if (params.waktu && item.WaktuID !== params.waktu) continue;
+    
+    absensi.push(item);
+  }
+  
+  return absensi;
+}
+
+function getAbsensiReport(params) {
+  const santriSheet = getSheet('Santri');
+  const musammiSheet = getSheet('Musammi');
+  const absensiSantriSheet = getSheet('AbsensiSantri');
+  const absensiMusammiSheet = getSheet('AbsensiMusammi');
+  
+  const santriData = santriSheet.getDataRange().getValues().slice(1);
+  const musammiData = musammiSheet.getDataRange().getValues().slice(1);
+  
+  let reportData = [];
+  
+  // Get santri attendance if peran is 'santri' or 'all'
+  if (!params.peran || params.peran === 'santri' || params.peran === 'all') {
+    const absensiData = absensiSantriSheet.getDataRange().getValues().slice(1);
+    
+    for (let i = 0; i < absensiData.length; i++) {
+      const absen = {
+        id: absensiData[i][0],
+        tanggal: absensiData[i][1],
+        marhalahId: absensiData[i][2],
+        waktuId: absensiData[i][3],
+        halaqahId: absensiData[i][4],
+        personId: absensiData[i][5],
+        statusId: absensiData[i][6],
+        keterangan: absensiData[i][7] || '',
+        peran: 'Santri'
+      };
+      
+      // Apply filters
+      if (params.tanggal && absen.tanggal !== params.tanggal) continue;
+      if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
+      
+      // Find santri info
+      const santri = santriData.find(s => s[0] === absen.personId);
+      if (santri) {
+        absen.nama = santri[1];
+        absen.kelas = santri[3];
+        
+        if (params.kelas && absen.kelas !== params.kelas) continue;
+        
+        reportData.push(absen);
+      }
+    }
+  }
+  
+  // Get musammi attendance if peran is 'musammi' or 'all'
+  if (!params.peran || params.peran === 'musammi' || params.peran === 'all') {
+    const absensiData = absensiMusammiSheet.getDataRange().getValues().slice(1);
+    
+    for (let i = 0; i < absensiData.length; i++) {
+      const absen = {
+        id: absensiData[i][0],
+        tanggal: absensiData[i][1],
+        marhalahId: absensiData[i][2],
+        waktuId: absensiData[i][3],
+        halaqahId: absensiData[i][4],
+        personId: absensiData[i][5],
+        statusId: absensiData[i][6],
+        keterangan: absensiData[i][7] || '',
+        peran: 'Musammi'
+      };
+      
+      // Apply filters
+      if (params.tanggal && absen.tanggal !== params.tanggal) continue;
+      if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
+      
+      // Find musammi info
+      const musammi = musammiData.find(m => m[0] === absen.personId);
+      if (musammi) {
+        absen.nama = musammi[1];
+        absen.kelas = musammi[3];
+        
+        if (params.kelas && absen.kelas !== params.kelas) continue;
+        
+        reportData.push(absen);
+      }
+    }
+  }
+  
+  // Calculate distribution stats
+  const stats = {
+    hadir: reportData.filter(a => a.statusId === 'HADIR').length,
+    sakit: reportData.filter(a => a.statusId === 'SAKIT').length,
+    izin: reportData.filter(a => a.statusId === 'IZIN').length,
+    alpa: reportData.filter(a => a.statusId === 'ALPA').length,
+    terlambat: reportData.filter(a => a.statusId === 'TERLAMBAT').length
+  };
+  
+  return {
+    data: reportData,
+    stats: stats,
+    total: reportData.length
+  };
+}
+
 // ========== DASHBOARD STATS ==========
 
 function getDashboardStats() {
@@ -917,11 +1068,11 @@ function getDashboardStats() {
   const todayAbsensi = absensiData.filter(a => a[1] === today);
   
   const absensiHariIni = {
-    hadir: todayAbsensi.filter(a => a[3] === 'HADIR').length,
-    sakit: todayAbsensi.filter(a => a[3] === 'SAKIT').length,
-    izin: todayAbsensi.filter(a => a[3] === 'IZIN').length,
-    alpa: todayAbsensi.filter(a => a[3] === 'ALPA').length,
-    terlambat: todayAbsensi.filter(a => a[3] === 'TERLAMBAT').length
+    hadir: todayAbsensi.filter(a => a[6] === 'HADIR').length,
+    sakit: todayAbsensi.filter(a => a[6] === 'SAKIT').length,
+    izin: todayAbsensi.filter(a => a[6] === 'IZIN').length,
+    alpa: todayAbsensi.filter(a => a[6] === 'ALPA').length,
+    terlambat: todayAbsensi.filter(a => a[6] === 'TERLAMBAT').length
   };
   
   // Get hafalan data for last 4 months
@@ -1020,6 +1171,9 @@ function doGet(e) {
     }
     else if (path === 'absensi/musammi') {
       return jsonResponse(getAbsensiMusammi(params));
+    }
+    else if (path === 'absensi/report') {
+      return jsonResponse(getAbsensiReport(params));
     }
     else if (path === 'hafalan') {
       return jsonResponse(getHafalanBulanan(params));
