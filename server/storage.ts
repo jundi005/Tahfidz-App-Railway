@@ -90,7 +90,25 @@ export class GoogleSheetsStorage implements IStorage {
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || process.env.GOOGLE_APPS_SCRIPT_URL || "";
+    const url = baseUrl || process.env.GOOGLE_APPS_SCRIPT_URL || "";
+    
+    if (!url || url.trim() === "") {
+      throw new Error(
+        "GOOGLE_APPS_SCRIPT_URL environment variable is required. " +
+        "Please set it to your Google Apps Script web app URL."
+      );
+    }
+    
+    // Validate that it's a valid URL
+    try {
+      new URL(url);
+      this.baseUrl = url;
+    } catch (error) {
+      throw new Error(
+        `Invalid GOOGLE_APPS_SCRIPT_URL: ${url}. ` +
+        "Please provide a valid URL for your Google Apps Script web app."
+      );
+    }
   }
 
   private async request<T>(endpoint: string, options?: RequestInit & { allowUndefined?: boolean }): Promise<T> {
@@ -379,4 +397,373 @@ export class GoogleSheetsStorage implements IStorage {
   }
 }
 
-export const storage = new GoogleSheetsStorage();
+// In-Memory Storage Implementation for Development
+export class MemStorage implements IStorage {
+  private halaqah: Map<string, Halaqah> = new Map();
+  private musammi: Map<string, Musammi> = new Map();
+  private santri: Map<string, Santri> = new Map();
+  private halaqahMembers: Map<string, HalaqahMembers[]> = new Map();
+  private absensiSantri: AbsensiSantri[] = [];
+  private absensiMusammi: AbsensiMusammi[] = [];
+  private hafalanBulanan: Map<string, HafalanBulanan> = new Map();
+  private murojaahBulanan: Map<string, MurojaahBulanan> = new Map();
+  private penambahanHafalan: PenambahanHafalan[] = [];
+  private tasks: Map<string, Tasks> = new Map();
+
+  private generateId(): string {
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  }
+
+  async getLookups(): Promise<LookupsResponse> {
+    return {
+      marhalah: [
+        { MarhalahID: "MUT", NamaMarhalah: "Mutawassitoh" },
+        { MarhalahID: "ALI", NamaMarhalah: "Aliyah" },
+        { MarhalahID: "JAM", NamaMarhalah: "Jamii" },
+      ],
+      waktu: [
+        { WaktuID: "SUBUH", NamaWaktu: "Subuh" },
+        { WaktuID: "ASHAR", NamaWaktu: "Ashar" },
+        { WaktuID: "ISYA", NamaWaktu: "Isya" },
+      ],
+      kehadiran: [
+        { StatusID: "HADIR", NamaStatus: "Hadir" },
+        { StatusID: "SAKIT", NamaStatus: "Sakit" },
+        { StatusID: "IZIN", NamaStatus: "Izin" },
+        { StatusID: "ALPA", NamaStatus: "Alpa" },
+        { StatusID: "TERLAMBAT", NamaStatus: "Terlambat" },
+      ],
+      kelas: [
+        { MarhalahID: "MUT", Kelas: "1 Mutawassitoh" },
+        { MarhalahID: "MUT", Kelas: "2 Mutawassitoh" },
+        { MarhalahID: "MUT", Kelas: "3 Mutawassitoh" },
+        { MarhalahID: "ALI", Kelas: "1 Aliyah" },
+        { MarhalahID: "ALI", Kelas: "2 Aliyah" },
+        { MarhalahID: "ALI", Kelas: "3 Aliyah" },
+        { MarhalahID: "JAM", Kelas: "Jamii" },
+      ],
+    };
+  }
+
+  async getHalaqah(id: string): Promise<Halaqah | undefined> {
+    return this.halaqah.get(id);
+  }
+
+  async getAllHalaqah(marhalahId?: string): Promise<Halaqah[]> {
+    const all = Array.from(this.halaqah.values());
+    if (marhalahId) {
+      return all.filter(h => h.MarhalahID === marhalahId);
+    }
+    return all;
+  }
+
+  async createHalaqah(halaqah: InsertHalaqah): Promise<Halaqah> {
+    const id = this.generateId();
+    const newHalaqah: Halaqah = { ...halaqah, HalaqahID: id };
+    this.halaqah.set(id, newHalaqah);
+    return newHalaqah;
+  }
+
+  async updateHalaqah(id: string, halaqah: Partial<InsertHalaqah>): Promise<Halaqah> {
+    const existing = this.halaqah.get(id);
+    if (!existing) throw new Error('Halaqah not found');
+    const updated = { ...existing, ...halaqah };
+    this.halaqah.set(id, updated);
+    return updated;
+  }
+
+  async deleteHalaqah(id: string): Promise<void> {
+    if (!this.halaqah.has(id)) throw new Error('Halaqah not found');
+    this.halaqah.delete(id);
+  }
+
+  async getMusammi(id: string): Promise<Musammi | undefined> {
+    return this.musammi.get(id);
+  }
+
+  async getAllMusammi(marhalahId?: string): Promise<Musammi[]> {
+    const all = Array.from(this.musammi.values());
+    if (marhalahId) {
+      return all.filter(m => m.MarhalahID === marhalahId);
+    }
+    return all;
+  }
+
+  async createMusammi(musammi: InsertMusammi): Promise<Musammi> {
+    const id = this.generateId();
+    const newMusammi: Musammi = { ...musammi, MusammiID: id };
+    this.musammi.set(id, newMusammi);
+    return newMusammi;
+  }
+
+  async updateMusammi(id: string, musammi: Partial<InsertMusammi>): Promise<Musammi> {
+    const existing = this.musammi.get(id);
+    if (!existing) throw new Error('Musammi not found');
+    const updated = { ...existing, ...musammi };
+    this.musammi.set(id, updated);
+    return updated;
+  }
+
+  async deleteMusammi(id: string): Promise<void> {
+    if (!this.musammi.has(id)) throw new Error('Musammi not found');
+    this.musammi.delete(id);
+  }
+
+  async getSantri(id: string): Promise<Santri | undefined> {
+    return this.santri.get(id);
+  }
+
+  async getAllSantri(marhalahId?: string, aktif?: boolean): Promise<Santri[]> {
+    let all = Array.from(this.santri.values());
+    if (marhalahId) {
+      all = all.filter(s => s.MarhalahID === marhalahId);
+    }
+    if (aktif !== undefined) {
+      all = all.filter(s => s.Aktif === aktif);
+    }
+    return all;
+  }
+
+  async createSantri(santri: InsertSantri): Promise<Santri> {
+    const id = this.generateId();
+    const newSantri: Santri = { ...santri, SantriID: id };
+    this.santri.set(id, newSantri);
+    return newSantri;
+  }
+
+  async updateSantri(id: string, santri: Partial<InsertSantri>): Promise<Santri> {
+    const existing = this.santri.get(id);
+    if (!existing) throw new Error('Santri not found');
+    const updated = { ...existing, ...santri };
+    this.santri.set(id, updated);
+    return updated;
+  }
+
+  async deleteSantri(id: string): Promise<void> {
+    if (!this.santri.has(id)) throw new Error('Santri not found');
+    this.santri.delete(id);
+  }
+
+  async getHalaqahMembers(halaqahId: string): Promise<HalaqahMembers[]> {
+    return this.halaqahMembers.get(halaqahId) || [];
+  }
+
+  async createHalaqahMember(member: InsertHalaqahMembers): Promise<HalaqahMembers> {
+    const members = this.halaqahMembers.get(member.HalaqahID) || [];
+    members.push(member);
+    this.halaqahMembers.set(member.HalaqahID, members);
+    return member;
+  }
+
+  async updateHalaqahMember(halaqahId: string, santriId: string, member: Partial<InsertHalaqahMembers>): Promise<HalaqahMembers> {
+    const members = this.halaqahMembers.get(halaqahId) || [];
+    const index = members.findIndex(m => m.SantriID === santriId);
+    if (index === -1) throw new Error('Halaqah member not found');
+    members[index] = { ...members[index], ...member };
+    return members[index];
+  }
+
+  async deleteHalaqahMember(halaqahId: string, santriId: string): Promise<void> {
+    const members = this.halaqahMembers.get(halaqahId) || [];
+    const filtered = members.filter(m => m.SantriID !== santriId);
+    if (filtered.length === members.length) throw new Error('Halaqah member not found');
+    this.halaqahMembers.set(halaqahId, filtered);
+  }
+
+  async batchCreateAbsensi(data: BatchAbsensi): Promise<{ musammi: AbsensiMusammi[]; santri: AbsensiSantri[] }> {
+    const musammiAbsensi: AbsensiMusammi[] = [];
+    const santriAbsensi: AbsensiSantri[] = [];
+
+    for (const m of data.musammi) {
+      const absensi: AbsensiMusammi = {
+        AbsensiMusammiID: this.generateId(),
+        Tanggal: data.tanggal,
+        MarhalahID: data.marhalahId,
+        WaktuID: data.waktuId,
+        HalaqahID: m.halaqahId,
+        MusammiID: m.musammiId,
+        StatusID: m.statusId,
+        Keterangan: m.keterangan,
+      };
+      this.absensiMusammi.push(absensi);
+      musammiAbsensi.push(absensi);
+    }
+
+    for (const s of data.santri) {
+      const absensi: AbsensiSantri = {
+        AbsensiSantriID: this.generateId(),
+        Tanggal: data.tanggal,
+        MarhalahID: data.marhalahId,
+        WaktuID: data.waktuId,
+        HalaqahID: s.halaqahId,
+        SantriID: s.santriId,
+        StatusID: s.statusId,
+        Keterangan: s.keterangan,
+      };
+      this.absensiSantri.push(absensi);
+      santriAbsensi.push(absensi);
+    }
+
+    return { musammi: musammiAbsensi, santri: santriAbsensi };
+  }
+
+  async getAbsensiSantri(tanggal: string, marhalahId?: string, waktuId?: string): Promise<AbsensiSantri[]> {
+    let filtered = this.absensiSantri.filter(a => a.Tanggal === tanggal);
+    if (marhalahId) filtered = filtered.filter(a => a.MarhalahID === marhalahId);
+    if (waktuId) filtered = filtered.filter(a => a.WaktuID === waktuId);
+    return filtered;
+  }
+
+  async getAbsensiMusammi(tanggal: string, marhalahId?: string, waktuId?: string): Promise<AbsensiMusammi[]> {
+    let filtered = this.absensiMusammi.filter(a => a.Tanggal === tanggal);
+    if (marhalahId) filtered = filtered.filter(a => a.MarhalahID === marhalahId);
+    if (waktuId) filtered = filtered.filter(a => a.WaktuID === waktuId);
+    return filtered;
+  }
+
+  async getHafalanBulanan(bulan: string, marhalahId?: string): Promise<HafalanBulanan[]> {
+    let all = Array.from(this.hafalanBulanan.values()).filter(h => h.Bulan === bulan);
+    if (marhalahId) {
+      all = all.filter(h => h.MarhalahID === marhalahId);
+    }
+    return all;
+  }
+
+  async createHafalanBulanan(hafalan: InsertHafalanBulanan): Promise<HafalanBulanan> {
+    const id = this.generateId();
+    const newHafalan: HafalanBulanan = { ...hafalan, RekapID: id };
+    this.hafalanBulanan.set(id, newHafalan);
+    return newHafalan;
+  }
+
+  async updateHafalanBulanan(id: string, hafalan: Partial<InsertHafalanBulanan>): Promise<HafalanBulanan> {
+    const existing = this.hafalanBulanan.get(id);
+    if (!existing) throw new Error('Hafalan not found');
+    const updated = { ...existing, ...hafalan };
+    this.hafalanBulanan.set(id, updated);
+    return updated;
+  }
+
+  async deleteHafalanBulanan(id: string): Promise<void> {
+    if (!this.hafalanBulanan.has(id)) throw new Error('Hafalan not found');
+    this.hafalanBulanan.delete(id);
+  }
+
+  async getMurojaahBulanan(bulan: string, marhalahId?: string): Promise<MurojaahBulanan[]> {
+    let all = Array.from(this.murojaahBulanan.values()).filter(m => m.Bulan === bulan);
+    if (marhalahId) {
+      all = all.filter(m => m.MarhalahID === marhalahId);
+    }
+    return all;
+  }
+
+  async createMurojaahBulanan(murojaah: InsertMurojaahBulanan): Promise<MurojaahBulanan> {
+    const id = this.generateId();
+    const newMurojaah: MurojaahBulanan = { ...murojaah, MurojaahID: id };
+    this.murojaahBulanan.set(id, newMurojaah);
+    return newMurojaah;
+  }
+
+  async updateMurojaahBulanan(id: string, murojaah: Partial<InsertMurojaahBulanan>): Promise<MurojaahBulanan> {
+    const existing = this.murojaahBulanan.get(id);
+    if (!existing) throw new Error('Murojaah not found');
+    const updated = { ...existing, ...murojaah };
+    this.murojaahBulanan.set(id, updated);
+    return updated;
+  }
+
+  async deleteMurojaahBulanan(id: string): Promise<void> {
+    if (!this.murojaahBulanan.has(id)) throw new Error('Murojaah not found');
+    this.murojaahBulanan.delete(id);
+  }
+
+  async createPenambahanHafalan(penambahan: InsertPenambahanHafalan): Promise<PenambahanHafalan> {
+    const newPenambahan: PenambahanHafalan = { ...penambahan, PenambahanID: this.generateId() };
+    this.penambahanHafalan.push(newPenambahan);
+    return newPenambahan;
+  }
+
+  async getTasks(status?: string): Promise<Tasks[]> {
+    let all = Array.from(this.tasks.values());
+    if (status) {
+      all = all.filter(t => t.Status === status);
+    }
+    return all;
+  }
+
+  async createTask(task: InsertTasks): Promise<Tasks> {
+    const id = this.generateId();
+    const newTask: Tasks = { ...task, TaskID: id };
+    this.tasks.set(id, newTask);
+    return newTask;
+  }
+
+  async updateTask(id: string, task: Partial<InsertTasks>): Promise<Tasks> {
+    const existing = this.tasks.get(id);
+    if (!existing) throw new Error('Task not found');
+    const updated = { ...existing, ...task };
+    this.tasks.set(id, updated);
+    return updated;
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    if (!this.tasks.has(id)) throw new Error('Task not found');
+    this.tasks.delete(id);
+  }
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    const today = new Date().toISOString().split('T')[0];
+    const totalSantri = Array.from(this.santri.values()).filter(s => s.Aktif).length;
+    const santriMutawassitoh = Array.from(this.santri.values()).filter(s => s.Aktif && s.MarhalahID === "MUT").length;
+    const santriAliyah = Array.from(this.santri.values()).filter(s => s.Aktif && s.MarhalahID === "ALI").length;
+
+    const totalMusammi = this.musammi.size;
+    const musammiAliyah = Array.from(this.musammi.values()).filter(m => m.MarhalahID === "ALI").length;
+    const musammiJamii = Array.from(this.musammi.values()).filter(m => m.MarhalahID === "JAM").length;
+
+    const musammiHalaqahAliyah = Array.from(this.halaqah.values()).filter(h => h.MarhalahID === "ALI").length;
+    const musammiHalaqahMutawassitoh = Array.from(this.halaqah.values()).filter(h => h.MarhalahID === "MUT").length;
+
+    const todayAbsensi = this.absensiSantri.filter(a => a.Tanggal === today);
+    const absensiHariIni = {
+      hadir: todayAbsensi.filter(a => a.StatusID === "HADIR").length,
+      sakit: todayAbsensi.filter(a => a.StatusID === "SAKIT").length,
+      izin: todayAbsensi.filter(a => a.StatusID === "IZIN").length,
+      alpa: todayAbsensi.filter(a => a.StatusID === "ALPA").length,
+      terlambat: todayAbsensi.filter(a => a.StatusID === "TERLAMBAT").length,
+    };
+
+    return {
+      totalSantri,
+      santriMutawassitoh,
+      santriAliyah,
+      totalMusammi,
+      musammiAliyah,
+      musammiJamii,
+      musammiHalaqahAliyah,
+      musammiHalaqahMutawassitoh,
+      absensiHariIni,
+      hafalanBulanIni: [],
+    };
+  }
+}
+
+// Create storage instance based on environment
+function createStorage(): IStorage {
+  const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+  
+  if (googleScriptUrl && googleScriptUrl.trim() !== "") {
+    try {
+      return new GoogleSheetsStorage(googleScriptUrl);
+    } catch (error) {
+      console.error('Failed to initialize Google Sheets Storage:', error);
+      console.log('Falling back to in-memory storage for development...');
+      return new MemStorage();
+    }
+  }
+  
+  console.log('GOOGLE_APPS_SCRIPT_URL not set. Using in-memory storage for development.');
+  return new MemStorage();
+}
+
+export const storage = createStorage();
