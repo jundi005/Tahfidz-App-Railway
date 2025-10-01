@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Calendar, AlertCircle, Plus, Upload, Trash2 } from "lucide-react";
@@ -95,8 +95,9 @@ export default function DataHalaqah() {
   const [showTambahDialog, setShowTambahDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // State untuk menyimpan status absensi setiap santri
+  // State untuk menyimpan status absensi setiap santri dan musammi
   const [absensiState, setAbsensiState] = useState<Record<string, string>>({});
+  const [musammiAbsensiState, setMusammiAbsensiState] = useState<Record<string, string>>({});
   
   // State untuk konfirmasi hapus
   const [deleteHalaqahDialog, setDeleteHalaqahDialog] = useState<{open: boolean, halaqahId: string, nomorUrut: number}>({open: false, halaqahId: '', nomorUrut: 0});
@@ -191,6 +192,29 @@ export default function DataHalaqah() {
     if (!selectedMarhalah || selectedMarhalah === "all") return halaqahWithDetails;
     return halaqahWithDetails.filter(h => h.marhalahId === selectedMarhalah);
   }, [halaqahWithDetails, selectedMarhalah]);
+
+  // Clear and set default "HADIR" for all musammi and santri when marhalah changes
+  useEffect(() => {
+    if (absensiMarhalah && absensiMarhalah !== "all") {
+      const filteredForAbsensi = halaqahWithDetails.filter(h => h.marhalahId === absensiMarhalah);
+      
+      // Clear old state and set default for musammi
+      const newMusammiState: Record<string, string> = {};
+      filteredForAbsensi.forEach(halaqah => {
+        newMusammiState[halaqah.halaqahId] = "HADIR";
+      });
+      setMusammiAbsensiState(newMusammiState);
+      
+      // Clear old state and set default for santri
+      const newSantriState: Record<string, string> = {};
+      filteredForAbsensi.forEach(halaqah => {
+        halaqah.santriList.forEach(santri => {
+          newSantriState[santri.santriId] = "HADIR";
+        });
+      });
+      setAbsensiState(newSantriState);
+    }
+  }, [absensiMarhalah, halaqahWithDetails]);
 
   // Fungsi untuk menambah baris baru
   const addNewRow = () => {
@@ -478,6 +502,7 @@ export default function DataHalaqah() {
       });
       setShowAbsensiDialog(false);
       setAbsensiState({});
+      setMusammiAbsensiState({});
     },
     onError: (error: Error) => {
       toast({ 
@@ -540,12 +565,19 @@ export default function DataHalaqah() {
     }));
   };
 
+  const handleUpdateMusammiAbsensi = (halaqahId: string, statusId: string) => {
+    setMusammiAbsensiState(prev => ({
+      ...prev,
+      [halaqahId]: statusId,
+    }));
+  };
+
   const handleSubmitAbsensi = () => {
     // Validasi marhalah tidak boleh "all" atau empty
-    if (!absensiMarhalah || absensiMarhalah === "all" || !["MUT", "ALI", "JAM"].includes(absensiMarhalah)) {
+    if (!absensiMarhalah || absensiMarhalah === "all" || !["MUT", "ALI"].includes(absensiMarhalah)) {
       toast({
         title: "Error",
-        description: "Pilih marhalah yang valid (MUT, ALI, atau JAM)",
+        description: "Pilih marhalah yang valid (MUT atau ALI)",
         variant: "destructive"
       });
       return;
@@ -560,25 +592,39 @@ export default function DataHalaqah() {
       return;
     }
 
-    // Build santri absensi list
-    const santriAbsensi = Object.entries(absensiState).map(([santriId, statusId]) => {
-      const santri = allSantri?.find(s => s.SantriID === santriId);
-      const halaqahDetail = halaqahWithDetails.find(h => 
-        h.santriList.some(s => s.santriId === santriId)
-      );
+    // Get halaqah for the selected marhalah only
+    const filteredForAbsensi = halaqahWithDetails.filter(h => h.marhalahId === absensiMarhalah);
+
+    // Build musammi absensi list - only for selected marhalah
+    const musammiAbsensi = filteredForAbsensi.map(halaqahDetail => {
+      const halaqah = allHalaqah?.find(h => h.HalaqahID === halaqahDetail.halaqahId);
+      if (!halaqah) return null;
+      
+      const statusId = musammiAbsensiState[halaqahDetail.halaqahId] || "HADIR";
       
       return {
-        halaqahId: halaqahDetail?.halaqahId || '',
-        santriId,
+        halaqahId: halaqahDetail.halaqahId,
+        musammiId: halaqah.MusammiID,
         statusId: statusId as any,
+        keterangan: '',
       };
-    }).filter(item => item.halaqahId);
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+
+    // Build santri absensi list - only for selected marhalah
+    const santriAbsensi = filteredForAbsensi.flatMap(halaqahDetail => 
+      halaqahDetail.santriList.map(santri => ({
+        halaqahId: halaqahDetail.halaqahId,
+        santriId: santri.santriId,
+        statusId: (absensiState[santri.santriId] || "HADIR") as any,
+        keterangan: '',
+      }))
+    );
 
     const batchData: BatchAbsensi = {
       tanggal,
       marhalahId: absensiMarhalah as any,
       waktuId: selectedWaktu as any,
-      musammi: [],
+      musammi: musammiAbsensi,
       santri: santriAbsensi,
     };
 
@@ -729,9 +775,9 @@ export default function DataHalaqah() {
       <Dialog open={showAbsensiDialog} onOpenChange={setShowAbsensiDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-absensi">
           <DialogHeader>
-            <DialogTitle>Form Absensi Santri</DialogTitle>
+            <DialogTitle>Form Absensi Musammi dan Santri</DialogTitle>
             <DialogDescription>
-              Isi absensi untuk semua santri di halaqah yang dipilih
+              Isi absensi untuk musammi dan santri di halaqah yang dipilih
             </DialogDescription>
           </DialogHeader>
 
@@ -781,10 +827,10 @@ export default function DataHalaqah() {
               </div>
             </div>
 
-            {/* Daftar Santri untuk Absensi */}
+            {/* Daftar Musammi dan Santri untuk Absensi */}
             {absensiMarhalah && (
               <div className="space-y-3">
-                <p className="text-sm font-medium">Daftar Santri:</p>
+                <p className="text-sm font-medium">Daftar Musammi dan Santri:</p>
                 {halaqahWithDetails
                   .filter(h => h.marhalahId === absensiMarhalah)
                   .map((halaqah) => (
@@ -794,23 +840,24 @@ export default function DataHalaqah() {
                         Halaqah {halaqah.nomorUrutHalaqah} - {halaqah.namaMusammi}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                      {halaqah.santriList.map((santri) => (
+                    <CardContent className="space-y-3">
+                      {/* Absensi Musammi */}
+                      <div className="border-b pb-3">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Musammi:</p>
                         <div 
-                          key={santri.santriId} 
-                          className="flex items-center justify-between gap-4 p-2 border rounded-lg"
-                          data-testid={`absensi-row-${santri.santriId}`}
+                          className="flex items-center justify-between gap-4 p-2 border rounded-lg bg-accent/20"
+                          data-testid={`absensi-musammi-${halaqah.halaqahId}`}
                         >
                           <div className="flex-1">
-                            <p className="font-medium text-sm">{santri.namaSantri}</p>
-                            <p className="text-xs text-muted-foreground">Kelas: {santri.kelas}</p>
+                            <p className="font-medium text-sm">{halaqah.namaMusammi}</p>
+                            <p className="text-xs text-muted-foreground">Pembimbing</p>
                           </div>
                           <div className="w-40">
                             <Select 
-                              value={absensiState[santri.santriId] || ""} 
-                              onValueChange={(value) => handleUpdateAbsensi(santri.santriId, value)}
+                              value={musammiAbsensiState[halaqah.halaqahId] || "HADIR"} 
+                              onValueChange={(value) => handleUpdateMusammiAbsensi(halaqah.halaqahId, value)}
                             >
-                              <SelectTrigger data-testid={`select-status-${santri.santriId}`}>
+                              <SelectTrigger data-testid={`select-status-musammi-${halaqah.halaqahId}`}>
                                 <SelectValue placeholder="Status" />
                               </SelectTrigger>
                               <SelectContent>
@@ -823,7 +870,43 @@ export default function DataHalaqah() {
                             </Select>
                           </div>
                         </div>
-                      ))}
+                      </div>
+
+                      {/* Absensi Santri */}
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Santri:</p>
+                        <div className="space-y-2">
+                          {halaqah.santriList.map((santri) => (
+                            <div 
+                              key={santri.santriId} 
+                              className="flex items-center justify-between gap-4 p-2 border rounded-lg"
+                              data-testid={`absensi-row-${santri.santriId}`}
+                            >
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{santri.namaSantri}</p>
+                                <p className="text-xs text-muted-foreground">Kelas: {santri.kelas}</p>
+                              </div>
+                              <div className="w-40">
+                                <Select 
+                                  value={absensiState[santri.santriId] || "HADIR"} 
+                                  onValueChange={(value) => handleUpdateAbsensi(santri.santriId, value)}
+                                >
+                                  <SelectTrigger data-testid={`select-status-${santri.santriId}`}>
+                                    <SelectValue placeholder="Status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {lookups?.kehadiran.map((k) => (
+                                      <SelectItem key={k.StatusID} value={k.StatusID}>
+                                        {k.NamaStatus}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
