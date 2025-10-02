@@ -88,7 +88,9 @@ export interface IStorage {
     marhalahId?: string,
   ): Promise<HafalanBulanan[]>;
   createHafalanBulanan(hafalan: InsertHafalanBulanan): Promise<HafalanBulanan>;
-  batchCreateHafalanBulanan(hafalan: InsertHafalanBulanan[]): Promise<HafalanBulanan[]>;
+  batchCreateHafalanBulanan(
+    hafalan: InsertHafalanBulanan[],
+  ): Promise<HafalanBulanan[]>;
   updateHafalanBulanan(
     id: string,
     hafalan: Partial<InsertHafalanBulanan>,
@@ -103,7 +105,9 @@ export interface IStorage {
   createMurojaahBulanan(
     murojaah: InsertMurojaahBulanan,
   ): Promise<MurojaahBulanan>;
-  batchCreateMurojaahBulanan(murojaah: InsertMurojaahBulanan[]): Promise<MurojaahBulanan[]>;
+  batchCreateMurojaahBulanan(
+    murojaah: InsertMurojaahBulanan[],
+  ): Promise<MurojaahBulanan[]>;
   updateMurojaahBulanan(
     id: string,
     murojaah: Partial<InsertMurojaahBulanan>,
@@ -118,7 +122,9 @@ export interface IStorage {
   createPenambahanHafalan(
     penambahan: InsertPenambahanHafalan,
   ): Promise<PenambahanHafalan>;
-  batchCreatePenambahanHafalan(penambahan: InsertPenambahanHafalan[]): Promise<PenambahanHafalan[]>;
+  batchCreatePenambahanHafalan(
+    penambahan: InsertPenambahanHafalan[],
+  ): Promise<PenambahanHafalan[]>;
 
   // Tasks
   getTasks(status?: string): Promise<Tasks[]>;
@@ -138,7 +144,7 @@ export class GoogleSheetsStorage implements IStorage {
     const url =
       baseUrl ||
       process.env.GOOGLE_APPS_SCRIPT_URL ||
-      "https://script.google.com/macros/s/AKfycbx-tIm4L4zIwxPdZCUm3ddFpKsY-01QFm4P-28BIVGtMlzwOCteFDfqYTYatxQ6L9CYuQ/exec";
+      "https://script.google.com/macros/s/AKfycbz47z4Czn5j2bFSLW4VUsGskrGZriqRyTuqlmCYYISuGYrhIW0-KWnFr9rZrYlOxIZR4w/exec";
 
     if (!url || url.trim() === "") {
       throw new Error(
