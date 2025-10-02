@@ -1218,10 +1218,10 @@ export default function Perkembangan() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Bulan</TableHead>
-                        <TableHead>Nama Santri</TableHead>
-                        <TableHead>Kelas</TableHead>
                         <TableHead>Marhalah</TableHead>
                         <TableHead>Halaqah</TableHead>
+                        <TableHead>Nama Santri</TableHead>
+                        <TableHead>Kelas</TableHead>
                         <TableHead>Musammi</TableHead>
                         <TableHead>Murojaah (Juz)</TableHead>
                         {addingMurojaah && <TableHead>Actions</TableHead>}
@@ -1240,24 +1240,18 @@ export default function Perkembangan() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Select value={murojaahForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'murojaah')}>
-                              <SelectTrigger className="w-40" data-testid="select-santri-murojaah">
-                                <SelectValue placeholder="Pilih Santri" />
+                            <Select value={murojaahForm.MarhalahID} onValueChange={(v) => handleMarhalahChange(v, 'murojaah')}>
+                              <SelectTrigger className="w-32" data-testid="select-marhalah-murojaah">
+                                <SelectValue placeholder="Pilih Marhalah" />
                               </SelectTrigger>
                               <SelectContent>
-                                {allSantri?.filter(s => s.Aktif).map((s) => (
-                                  <SelectItem key={s.SantriID} value={s.SantriID}>
-                                    {s.NamaSantri}
+                                {lookups?.marhalah.map((m) => (
+                                  <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
+                                    {m.NamaMarhalah}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {murojaahForm.Kelas || '-'}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {lookups?.marhalah.find(m => m.MarhalahID === murojaahForm.MarhalahID)?.NamaMarhalah || '-'}
                           </TableCell>
                           <TableCell>
                             <Select value={murojaahForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'murojaah')}>
@@ -1275,6 +1269,33 @@ export default function Perkembangan() {
                                 })}
                               </SelectContent>
                             </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select value={murojaahForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'murojaah')}>
+                              <SelectTrigger className="w-40" data-testid="select-santri-murojaah">
+                                <SelectValue placeholder="Pilih Santri" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {selectedHalaqahMembers.length > 0 ? (
+                                  selectedHalaqahMembers.map((member) => {
+                                    const santri = allSantri?.find(s => s.SantriID === member.SantriID && s.Aktif);
+                                    if (!santri) return null;
+                                    return (
+                                      <SelectItem key={santri.SantriID} value={santri.SantriID}>
+                                        {santri.NamaSantri}
+                                      </SelectItem>
+                                    );
+                                  }).filter(Boolean)
+                                ) : (
+                                  <SelectItem value="" disabled>
+                                    Pilih Halaqah terlebih dahulu
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {murojaahForm.Kelas || '-'}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {allMusammi?.find(m => m.MusammiID === murojaahForm.MusammiID)?.NamaMusammi || '-'}
@@ -1322,10 +1343,10 @@ export default function Perkembangan() {
                           return (
                             <TableRow key={m.MurojaahID} data-testid={`row-murojaah-${m.MurojaahID}`}>
                               <TableCell>{m.Bulan}</TableCell>
-                              <TableCell className="font-medium">{santri?.NamaSantri || 'N/A'}</TableCell>
-                              <TableCell>{m.Kelas}</TableCell>
                               <TableCell>{lookups?.marhalah.find(mar => mar.MarhalahID === m.MarhalahID)?.NamaMarhalah}</TableCell>
                               <TableCell>{halaqah?.NomorUrutHalaqah || 'N/A'}</TableCell>
+                              <TableCell className="font-medium">{santri?.NamaSantri || 'N/A'}</TableCell>
+                              <TableCell>{m.Kelas}</TableCell>
                               <TableCell>{musammi?.NamaMusammi || 'N/A'}</TableCell>
                               <TableCell className="font-mono">{m.JumlahMurojaah.toFixed(1)}</TableCell>
                             </TableRow>
