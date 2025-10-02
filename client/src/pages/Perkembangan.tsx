@@ -13,14 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Table,
   TableBody,
   TableCell,
@@ -51,12 +43,16 @@ export default function Perkembangan() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [activeDialog, setActiveDialog] = useState<'none' | 'hafalan' | 'murojaah' | 'penambahan'>('none');
   const [selectedMarhalah, setSelectedMarhalah] = useState<string>('ALL');
 
-  // Forms
+  // Table-based input state
+  const [addingHafalan, setAddingHafalan] = useState(false);
+  const [addingMurojaah, setAddingMurojaah] = useState(false);
+  const [addingPenambahan, setAddingPenambahan] = useState(false);
+
+  // Forms for new rows
   const [hafalanForm, setHafalanForm] = useState<InsertHafalanBulanan>({
-    Bulan: currentMonth,
+    Bulan: selectedMonth,
     SantriID: '',
     HalaqahID: '',
     MarhalahID: 'MUT',
@@ -66,7 +62,7 @@ export default function Perkembangan() {
   });
 
   const [murojaahForm, setMurojaahForm] = useState<InsertMurojaahBulanan>({
-    Bulan: currentMonth,
+    Bulan: selectedMonth,
     SantriID: '',
     HalaqahID: '',
     MarhalahID: 'MUT',
@@ -76,7 +72,7 @@ export default function Perkembangan() {
   });
 
   const [penambahanForm, setPenambahanForm] = useState<InsertPenambahanHafalan>({
-    Bulan: currentMonth,
+    Bulan: selectedMonth,
     SantriID: '',
     HalaqahID: '',
     MarhalahID: 'MUT',
@@ -125,7 +121,7 @@ export default function Perkembangan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/hafalan'] });
       toast({ title: "Berhasil", description: "Data hafalan berhasil ditambahkan" });
-      setActiveDialog('none');
+      setAddingHafalan(false);
       resetHafalanForm();
     },
     onError: (error: Error) => {
@@ -141,7 +137,7 @@ export default function Perkembangan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/murojaah'] });
       toast({ title: "Berhasil", description: "Data murojaah berhasil ditambahkan" });
-      setActiveDialog('none');
+      setAddingMurojaah(false);
       resetMurojaahForm();
     },
     onError: (error: Error) => {
@@ -162,7 +158,7 @@ export default function Perkembangan() {
         description: "Penambahan hafalan berhasil disimpan dan hafalan bulanan telah diperbarui",
         duration: 5000
       });
-      setActiveDialog('none');
+      setAddingPenambahan(false);
       resetPenambahanForm();
     },
     onError: (error: Error) => {
@@ -172,7 +168,7 @@ export default function Perkembangan() {
 
   const resetHafalanForm = () => {
     setHafalanForm({
-      Bulan: currentMonth,
+      Bulan: selectedMonth,
       SantriID: '',
       HalaqahID: '',
       MarhalahID: 'MUT',
@@ -184,7 +180,7 @@ export default function Perkembangan() {
 
   const resetMurojaahForm = () => {
     setMurojaahForm({
-      Bulan: currentMonth,
+      Bulan: selectedMonth,
       SantriID: '',
       HalaqahID: '',
       MarhalahID: 'MUT',
@@ -196,7 +192,7 @@ export default function Perkembangan() {
 
   const resetPenambahanForm = () => {
     setPenambahanForm({
-      Bulan: currentMonth,
+      Bulan: selectedMonth,
       SantriID: '',
       HalaqahID: '',
       MarhalahID: 'MUT',
@@ -299,7 +295,14 @@ export default function Perkembangan() {
 
         <TabsContent value="hafalan" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setActiveDialog('hafalan')} data-testid="button-add-hafalan">
+            <Button 
+              onClick={() => {
+                resetHafalanForm();
+                setAddingHafalan(true);
+              }} 
+              disabled={addingHafalan}
+              data-testid="button-add-hafalan"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Tambah Data Hafalan
             </Button>
@@ -328,9 +331,96 @@ export default function Perkembangan() {
                         <TableHead>Halaqah</TableHead>
                         <TableHead>Musammi</TableHead>
                         <TableHead>Hafalan (Juz)</TableHead>
+                        {addingHafalan && <TableHead>Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
+                      {addingHafalan && (
+                        <TableRow className="bg-muted/50" data-testid="row-hafalan-new">
+                          <TableCell>
+                            <Input
+                              type="month"
+                              value={hafalanForm.Bulan}
+                              onChange={(e) => setHafalanForm({ ...hafalanForm, Bulan: e.target.value })}
+                              className="w-32"
+                              data-testid="input-bulan-hafalan"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select value={hafalanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'hafalan')}>
+                              <SelectTrigger className="w-40" data-testid="select-santri-hafalan">
+                                <SelectValue placeholder="Pilih Santri" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allSantri?.filter(s => s.Aktif).map((s) => (
+                                  <SelectItem key={s.SantriID} value={s.SantriID}>
+                                    {s.NamaSantri}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {hafalanForm.Kelas || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {lookups?.marhalah.find(m => m.MarhalahID === hafalanForm.MarhalahID)?.NamaMarhalah || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Select value={hafalanForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'hafalan')}>
+                              <SelectTrigger className="w-32" data-testid="select-halaqah-hafalan">
+                                <SelectValue placeholder="Pilih Halaqah" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allHalaqah?.filter(h => h.MarhalahID === hafalanForm.MarhalahID).map((h) => {
+                                  const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
+                                  return (
+                                    <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
+                                      {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {allMusammi?.find(m => m.MusammiID === hafalanForm.MusammiID)?.NamaMusammi || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={hafalanForm.JumlahHafalan}
+                              onChange={(e) => setHafalanForm({ ...hafalanForm, JumlahHafalan: parseFloat(e.target.value) || 0 })}
+                              className="w-20"
+                              data-testid="input-jumlah-hafalan"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => createHafalanMutation.mutate(hafalanForm)}
+                                disabled={createHafalanMutation.isPending || !hafalanForm.SantriID || !hafalanForm.HalaqahID}
+                                data-testid="button-save-hafalan"
+                              >
+                                {createHafalanMutation.isPending ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setAddingHafalan(false);
+                                  resetHafalanForm();
+                                }}
+                                data-testid="button-cancel-hafalan"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
                       {hafalanData && hafalanData.length > 0 ? (
                         hafalanData.map((h) => {
                           const santri = allSantri?.find(s => s.SantriID === h.SantriID);
@@ -348,13 +438,13 @@ export default function Perkembangan() {
                             </TableRow>
                           );
                         })
-                      ) : (
+                      ) : !addingHafalan ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center text-muted-foreground">
                             Tidak ada data hafalan untuk bulan {selectedMonth}
                           </TableCell>
                         </TableRow>
-                      )}
+                      ) : null}
                     </TableBody>
                   </Table>
                 </div>
@@ -365,7 +455,14 @@ export default function Perkembangan() {
 
         <TabsContent value="murojaah" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setActiveDialog('murojaah')} data-testid="button-add-murojaah">
+            <Button 
+              onClick={() => {
+                resetMurojaahForm();
+                setAddingMurojaah(true);
+              }}
+              disabled={addingMurojaah}
+              data-testid="button-add-murojaah"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Tambah Data Murojaah
             </Button>
@@ -431,7 +528,14 @@ export default function Perkembangan() {
 
         <TabsContent value="penambahan" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setActiveDialog('penambahan')} data-testid="button-add-penambahan">
+            <Button 
+              onClick={() => {
+                resetPenambahanForm();
+                setAddingPenambahan(true);
+              }}
+              disabled={addingPenambahan}
+              data-testid="button-add-penambahan"
+            >
               <TrendingUp className="h-4 w-4 mr-2" />
               Tambah Penambahan Hafalan
             </Button>
@@ -504,247 +608,6 @@ export default function Perkembangan() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Hafalan Dialog */}
-      <Dialog open={activeDialog === 'hafalan'} onOpenChange={(open) => !open && setActiveDialog('none')}>
-        <DialogContent data-testid="dialog-hafalan">
-          <DialogHeader>
-            <DialogTitle>Tambah Data Hafalan Bulanan</DialogTitle>
-            <DialogDescription>Input data hafalan santri untuk bulan tertentu (dalam Juz)</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="bulan-hafalan">Bulan</Label>
-              <Input
-                id="bulan-hafalan"
-                type="month"
-                value={hafalanForm.Bulan}
-                onChange={(e) => setHafalanForm({ ...hafalanForm, Bulan: e.target.value })}
-                data-testid="input-bulan-hafalan"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="santri-hafalan">Santri</Label>
-              <Select value={hafalanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'hafalan')}>
-                <SelectTrigger id="santri-hafalan" data-testid="select-santri-hafalan">
-                  <SelectValue placeholder="Pilih Santri" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allSantri?.filter(s => s.Aktif).map((s) => (
-                    <SelectItem key={s.SantriID} value={s.SantriID}>
-                      {s.NamaSantri} ({s.Kelas})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="halaqah-hafalan">Halaqah</Label>
-              <Select value={hafalanForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'hafalan')}>
-                <SelectTrigger id="halaqah-hafalan" data-testid="select-halaqah-hafalan">
-                  <SelectValue placeholder="Pilih Halaqah" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allHalaqah?.filter(h => h.MarhalahID === hafalanForm.MarhalahID).map((h) => {
-                    const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                    return (
-                      <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
-                        Halaqah {h.NomorUrutHalaqah} - {musammi?.NamaMusammi || 'N/A'}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="jumlah-hafalan">Jumlah Hafalan (Juz)</Label>
-              <Input
-                id="jumlah-hafalan"
-                type="number"
-                step="0.1"
-                value={hafalanForm.JumlahHafalan}
-                onChange={(e) => setHafalanForm({ ...hafalanForm, JumlahHafalan: parseFloat(e.target.value) || 0 })}
-                data-testid="input-jumlah-hafalan"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog('none')}>Batal</Button>
-            <Button 
-              onClick={() => createHafalanMutation.mutate(hafalanForm)}
-              disabled={createHafalanMutation.isPending}
-              data-testid="button-save-hafalan"
-            >
-              {createHafalanMutation.isPending ? 'Menyimpan...' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Murojaah Dialog */}
-      <Dialog open={activeDialog === 'murojaah'} onOpenChange={(open) => !open && setActiveDialog('none')}>
-        <DialogContent data-testid="dialog-murojaah">
-          <DialogHeader>
-            <DialogTitle>Tambah Data Murojaah Bulanan</DialogTitle>
-            <DialogDescription>Input data murojaah santri untuk bulan tertentu (dalam Juz)</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="bulan-murojaah">Bulan</Label>
-              <Input
-                id="bulan-murojaah"
-                type="month"
-                value={murojaahForm.Bulan}
-                onChange={(e) => setMurojaahForm({ ...murojaahForm, Bulan: e.target.value })}
-                data-testid="input-bulan-murojaah"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="santri-murojaah">Santri</Label>
-              <Select value={murojaahForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'murojaah')}>
-                <SelectTrigger id="santri-murojaah" data-testid="select-santri-murojaah">
-                  <SelectValue placeholder="Pilih Santri" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allSantri?.filter(s => s.Aktif).map((s) => (
-                    <SelectItem key={s.SantriID} value={s.SantriID}>
-                      {s.NamaSantri} ({s.Kelas})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="halaqah-murojaah">Halaqah</Label>
-              <Select value={murojaahForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'murojaah')}>
-                <SelectTrigger id="halaqah-murojaah" data-testid="select-halaqah-murojaah">
-                  <SelectValue placeholder="Pilih Halaqah" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allHalaqah?.filter(h => h.MarhalahID === murojaahForm.MarhalahID).map((h) => {
-                    const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                    return (
-                      <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
-                        Halaqah {h.NomorUrutHalaqah} - {musammi?.NamaMusammi || 'N/A'}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="jumlah-murojaah">Jumlah Murojaah (Juz)</Label>
-              <Input
-                id="jumlah-murojaah"
-                type="number"
-                step="0.1"
-                value={murojaahForm.JumlahMurojaah}
-                onChange={(e) => setMurojaahForm({ ...murojaahForm, JumlahMurojaah: parseFloat(e.target.value) || 0 })}
-                data-testid="input-jumlah-murojaah"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog('none')}>Batal</Button>
-            <Button 
-              onClick={() => createMurojaahMutation.mutate(murojaahForm)}
-              disabled={createMurojaahMutation.isPending}
-              data-testid="button-save-murojaah"
-            >
-              {createMurojaahMutation.isPending ? 'Menyimpan...' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Penambahan Dialog */}
-      <Dialog open={activeDialog === 'penambahan'} onOpenChange={(open) => !open && setActiveDialog('none')}>
-        <DialogContent data-testid="dialog-penambahan">
-          <DialogHeader>
-            <DialogTitle>Tambah Penambahan Hafalan</DialogTitle>
-            <DialogDescription>
-              Input penambahan hafalan dalam halaman. Otomatis akan ditambahkan ke hafalan bulanan (20 hlm = 1 juz)
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="bulan-penambahan">Bulan</Label>
-              <Input
-                id="bulan-penambahan"
-                type="month"
-                value={penambahanForm.Bulan}
-                onChange={(e) => setPenambahanForm({ ...penambahanForm, Bulan: e.target.value })}
-                data-testid="input-bulan-penambahan"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="santri-penambahan">Santri</Label>
-              <Select value={penambahanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'penambahan')}>
-                <SelectTrigger id="santri-penambahan" data-testid="select-santri-penambahan">
-                  <SelectValue placeholder="Pilih Santri" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allSantri?.filter(s => s.Aktif).map((s) => (
-                    <SelectItem key={s.SantriID} value={s.SantriID}>
-                      {s.NamaSantri} ({s.Kelas})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="halaqah-penambahan">Halaqah</Label>
-              <Select value={penambahanForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'penambahan')}>
-                <SelectTrigger id="halaqah-penambahan" data-testid="select-halaqah-penambahan">
-                  <SelectValue placeholder="Pilih Halaqah" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allHalaqah?.filter(h => h.MarhalahID === penambahanForm.MarhalahID).map((h) => {
-                    const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                    return (
-                      <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
-                        Halaqah {h.NomorUrutHalaqah} - {musammi?.NamaMusammi || 'N/A'}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="jumlah-penambahan">Jumlah Penambahan (Halaman)</Label>
-              <Input
-                id="jumlah-penambahan"
-                type="number"
-                value={penambahanForm.JumlahPenambahan}
-                onChange={(e) => setPenambahanForm({ ...penambahanForm, JumlahPenambahan: parseInt(e.target.value) || 0 })}
-                data-testid="input-jumlah-penambahan"
-              />
-              <p className="text-xs text-muted-foreground">
-                Akan ditambahkan {(penambahanForm.JumlahPenambahan / 20).toFixed(2)} juz ke hafalan bulanan
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="catatan-penambahan">Catatan (Opsional)</Label>
-              <Input
-                id="catatan-penambahan"
-                value={penambahanForm.Catatan}
-                onChange={(e) => setPenambahanForm({ ...penambahanForm, Catatan: e.target.value })}
-                data-testid="input-catatan-penambahan"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActiveDialog('none')}>Batal</Button>
-            <Button 
-              onClick={() => createPenambahanMutation.mutate(penambahanForm)}
-              disabled={createPenambahanMutation.isPending}
-              data-testid="button-save-penambahan"
-            >
-              {createPenambahanMutation.isPending ? 'Menyimpan...' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
