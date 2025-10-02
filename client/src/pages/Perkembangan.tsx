@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,9 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, TrendingUp } from "lucide-react";
+import { Plus, TrendingUp, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import Papa from "papaparse";
 import type {
   HafalanBulanan,
   MurojaahBulanan,
@@ -49,6 +50,11 @@ export default function Perkembangan() {
   const [addingHafalan, setAddingHafalan] = useState(false);
   const [addingMurojaah, setAddingMurojaah] = useState(false);
   const [addingPenambahan, setAddingPenambahan] = useState(false);
+
+  // CSV Upload refs
+  const hafalanFileRef = useRef<HTMLInputElement>(null);
+  const murojaahFileRef = useRef<HTMLInputElement>(null);
+  const penambahanFileRef = useRef<HTMLInputElement>(null);
 
   // Forms for new rows
   const [hafalanForm, setHafalanForm] = useState<InsertHafalanBulanan>({
@@ -165,6 +171,265 @@ export default function Perkembangan() {
       toast({ title: "Gagal", description: error.message, variant: "destructive" });
     }
   });
+
+  // Batch upload mutations
+  const batchUploadHafalanMutation = useMutation({
+    mutationFn: async (data: InsertHafalanBulanan[]) => {
+      const res = await apiRequest('POST', '/api/hafalan/batch', { data });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.details ? 
+          `Error pada baris: ${errorData.details.map((e: any) => `#${e.row}: ${e.error}`).join(', ')}` :
+          errorData.error || 'Failed to upload');
+      }
+      return await res.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hafalan'] });
+      toast({ 
+        title: "Berhasil", 
+        description: `${result.count} data hafalan berhasil diimport`,
+        duration: 5000
+      });
+      if (hafalanFileRef.current) hafalanFileRef.current.value = '';
+    },
+    onError: (error: Error) => {
+      toast({ title: "Gagal Import", description: error.message, variant: "destructive", duration: 7000 });
+      if (hafalanFileRef.current) hafalanFileRef.current.value = '';
+    }
+  });
+
+  const batchUploadMurojaahMutation = useMutation({
+    mutationFn: async (data: InsertMurojaahBulanan[]) => {
+      const res = await apiRequest('POST', '/api/murojaah/batch', { data });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.details ? 
+          `Error pada baris: ${errorData.details.map((e: any) => `#${e.row}: ${e.error}`).join(', ')}` :
+          errorData.error || 'Failed to upload');
+      }
+      return await res.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/murojaah'] });
+      toast({ 
+        title: "Berhasil", 
+        description: `${result.count} data murojaah berhasil diimport`,
+        duration: 5000
+      });
+      if (murojaahFileRef.current) murojaahFileRef.current.value = '';
+    },
+    onError: (error: Error) => {
+      toast({ title: "Gagal Import", description: error.message, variant: "destructive", duration: 7000 });
+      if (murojaahFileRef.current) murojaahFileRef.current.value = '';
+    }
+  });
+
+  const batchUploadPenambahanMutation = useMutation({
+    mutationFn: async (data: InsertPenambahanHafalan[]) => {
+      const res = await apiRequest('POST', '/api/penambahan/batch', { data });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.details ? 
+          `Error pada baris: ${errorData.details.map((e: any) => `#${e.row}: ${e.error}`).join(', ')}` :
+          errorData.error || 'Failed to upload');
+      }
+      return await res.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hafalan'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/penambahan'] });
+      toast({ 
+        title: "Berhasil", 
+        description: `${result.count} data penambahan hafalan berhasil diimport dan hafalan bulanan diperbarui`,
+        duration: 5000
+      });
+      if (penambahanFileRef.current) penambahanFileRef.current.value = '';
+    },
+    onError: (error: Error) => {
+      toast({ title: "Gagal Import", description: error.message, variant: "destructive", duration: 7000 });
+      if (penambahanFileRef.current) penambahanFileRef.current.value = '';
+    }
+  });
+
+  const handleCSVUpload = (file: File, type: 'hafalan' | 'murojaah' | 'penambahan') => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        try {
+          const data = results.data as any[];
+          
+          if (data.length === 0) {
+            toast({ 
+              title: "CSV Kosong", 
+              description: "File CSV tidak mengandung data", 
+              variant: "destructive" 
+            });
+            return;
+          }
+          
+          const parseNumber = (val: any): number | null => {
+            if (val === null || val === undefined || val === '') return null;
+            const num = typeof val === 'string' ? parseFloat(val.trim()) : Number(val);
+            return isNaN(num) ? null : num;
+          };
+          
+          const normalizeString = (val: any): string => {
+            return (val || '').toString().trim();
+          };
+          
+          if (type === 'hafalan') {
+            const validRows: InsertHafalanBulanan[] = [];
+            const invalidRows: number[] = [];
+            
+            data.forEach((row, index) => {
+              const jumlah = parseNumber(row.JumlahHafalan || row.jumlahHafalan);
+              const bulan = normalizeString(row.Bulan || row.bulan);
+              const santriId = normalizeString(row.SantriID || row.santriId);
+              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId);
+              
+              if (!bulan || !santriId || !halaqahId || jumlah === null || jumlah <= 0) {
+                invalidRows.push(index + 1);
+              } else {
+                validRows.push({
+                  Bulan: bulan,
+                  SantriID: santriId,
+                  HalaqahID: halaqahId,
+                  MarhalahID: normalizeString(row.MarhalahID || row.marhalahId),
+                  Kelas: normalizeString(row.Kelas || row.kelas),
+                  MusammiID: normalizeString(row.MusammiID || row.musammiId),
+                  JumlahHafalan: jumlah
+                });
+              }
+            });
+            
+            if (invalidRows.length > 0) {
+              toast({ 
+                title: `${invalidRows.length} Baris Invalid`, 
+                description: `Baris ${invalidRows.slice(0, 10).join(', ')}${invalidRows.length > 10 ? '...' : ''} memiliki data tidak lengkap atau JumlahHafalan invalid`,
+                variant: "destructive",
+                duration: 7000
+              });
+              return;
+            }
+            
+            if (validRows.length === 0) {
+              toast({ 
+                title: "Tidak Ada Data Valid", 
+                description: "Tidak ada baris dengan data lengkap", 
+                variant: "destructive" 
+              });
+              return;
+            }
+            batchUploadHafalanMutation.mutate(validRows);
+          } else if (type === 'murojaah') {
+            const validRows: InsertMurojaahBulanan[] = [];
+            const invalidRows: number[] = [];
+            
+            data.forEach((row, index) => {
+              const jumlah = parseNumber(row.JumlahMurojaah || row.jumlahMurojaah);
+              const bulan = normalizeString(row.Bulan || row.bulan);
+              const santriId = normalizeString(row.SantriID || row.santriId);
+              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId);
+              
+              if (!bulan || !santriId || !halaqahId || jumlah === null || jumlah <= 0) {
+                invalidRows.push(index + 1);
+              } else {
+                validRows.push({
+                  Bulan: bulan,
+                  SantriID: santriId,
+                  HalaqahID: halaqahId,
+                  MarhalahID: normalizeString(row.MarhalahID || row.marhalahId),
+                  Kelas: normalizeString(row.Kelas || row.kelas),
+                  MusammiID: normalizeString(row.MusammiID || row.musammiId),
+                  JumlahMurojaah: jumlah
+                });
+              }
+            });
+            
+            if (invalidRows.length > 0) {
+              toast({ 
+                title: `${invalidRows.length} Baris Invalid`, 
+                description: `Baris ${invalidRows.slice(0, 10).join(', ')}${invalidRows.length > 10 ? '...' : ''} memiliki data tidak lengkap atau JumlahMurojaah invalid`,
+                variant: "destructive",
+                duration: 7000
+              });
+              return;
+            }
+            
+            if (validRows.length === 0) {
+              toast({ 
+                title: "Tidak Ada Data Valid", 
+                description: "Tidak ada baris dengan data lengkap", 
+                variant: "destructive" 
+              });
+              return;
+            }
+            batchUploadMurojaahMutation.mutate(validRows);
+          } else {
+            const validRows: InsertPenambahanHafalan[] = [];
+            const invalidRows: number[] = [];
+            
+            data.forEach((row, index) => {
+              const jumlah = parseNumber(row.JumlahPenambahan || row.jumlahPenambahan);
+              const bulan = normalizeString(row.Bulan || row.bulan);
+              const santriId = normalizeString(row.SantriID || row.santriId);
+              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId);
+              
+              if (!bulan || !santriId || !halaqahId || jumlah === null || jumlah <= 0) {
+                invalidRows.push(index + 1);
+              } else {
+                validRows.push({
+                  Bulan: bulan,
+                  SantriID: santriId,
+                  HalaqahID: halaqahId,
+                  MarhalahID: normalizeString(row.MarhalahID || row.marhalahId),
+                  Kelas: normalizeString(row.Kelas || row.kelas),
+                  MusammiID: normalizeString(row.MusammiID || row.musammiId),
+                  JumlahPenambahan: Math.round(jumlah),
+                  Catatan: normalizeString(row.Catatan || row.catatan)
+                });
+              }
+            });
+            
+            if (invalidRows.length > 0) {
+              toast({ 
+                title: `${invalidRows.length} Baris Invalid`, 
+                description: `Baris ${invalidRows.slice(0, 10).join(', ')}${invalidRows.length > 10 ? '...' : ''} memiliki data tidak lengkap atau JumlahPenambahan invalid`,
+                variant: "destructive",
+                duration: 7000
+              });
+              return;
+            }
+            
+            if (validRows.length === 0) {
+              toast({ 
+                title: "Tidak Ada Data Valid", 
+                description: "Tidak ada baris dengan data lengkap", 
+                variant: "destructive" 
+              });
+              return;
+            }
+            batchUploadPenambahanMutation.mutate(validRows);
+          }
+        } catch (error: any) {
+          toast({ 
+            title: "Error Parsing CSV", 
+            description: error.message, 
+            variant: "destructive" 
+          });
+        }
+      },
+      error: (error) => {
+        toast({ 
+          title: "Error Reading CSV", 
+          description: error.message, 
+          variant: "destructive" 
+        });
+      }
+    });
+  };
 
   const resetHafalanForm = () => {
     setHafalanForm({
@@ -294,7 +559,30 @@ export default function Perkembangan() {
         </TabsList>
 
         <TabsContent value="hafalan" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <input
+              ref={hafalanFileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleCSVUpload(file, 'hafalan');
+                  e.target.value = '';
+                }
+              }}
+              data-testid="input-file-hafalan"
+            />
+            <Button
+              variant="outline"
+              onClick={() => hafalanFileRef.current?.click()}
+              disabled={batchUploadHafalanMutation.isPending}
+              data-testid="button-upload-hafalan"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {batchUploadHafalanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
+            </Button>
             <Button 
               onClick={() => {
                 resetHafalanForm();
@@ -454,7 +742,30 @@ export default function Perkembangan() {
         </TabsContent>
 
         <TabsContent value="murojaah" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <input
+              ref={murojaahFileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleCSVUpload(file, 'murojaah');
+                  e.target.value = '';
+                }
+              }}
+              data-testid="input-file-murojaah"
+            />
+            <Button
+              variant="outline"
+              onClick={() => murojaahFileRef.current?.click()}
+              disabled={batchUploadMurojaahMutation.isPending}
+              data-testid="button-upload-murojaah"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {batchUploadMurojaahMutation.isPending ? 'Uploading...' : 'Upload CSV'}
+            </Button>
             <Button 
               onClick={() => {
                 resetMurojaahForm();
@@ -614,7 +925,30 @@ export default function Perkembangan() {
         </TabsContent>
 
         <TabsContent value="penambahan" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <input
+              ref={penambahanFileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleCSVUpload(file, 'penambahan');
+                  e.target.value = '';
+                }
+              }}
+              data-testid="input-file-penambahan"
+            />
+            <Button
+              variant="outline"
+              onClick={() => penambahanFileRef.current?.click()}
+              disabled={batchUploadPenambahanMutation.isPending}
+              data-testid="button-upload-penambahan"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {batchUploadPenambahanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
+            </Button>
             <Button 
               onClick={() => {
                 resetPenambahanForm();

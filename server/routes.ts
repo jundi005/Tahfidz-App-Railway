@@ -485,6 +485,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== BATCH IMPORTS ==========
+  app.post("/api/hafalan/batch", async (req, res) => {
+    try {
+      const { data } = req.body;
+      if (!Array.isArray(data)) {
+        return res.status(400).json({ error: "Expected array of records" });
+      }
+      
+      const validatedData = [];
+      const errors = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        try {
+          const validated = insertHafalanBulananSchema.parse(data[i]);
+          validatedData.push(validated);
+        } catch (err: any) {
+          if (err instanceof ZodError) {
+            errors.push({ row: i + 1, error: err.errors[0].message });
+          } else {
+            errors.push({ row: i + 1, error: err.message });
+          }
+        }
+      }
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ error: "Validation errors", details: errors });
+      }
+      
+      const results = await storage.batchCreateHafalanBulanan(validatedData);
+      res.status(201).json({ success: true, count: results.length, results });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/murojaah/batch", async (req, res) => {
+    try {
+      const { data } = req.body;
+      if (!Array.isArray(data)) {
+        return res.status(400).json({ error: "Expected array of records" });
+      }
+      
+      const validatedData = [];
+      const errors = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        try {
+          const validated = insertMurojaahBulananSchema.parse(data[i]);
+          validatedData.push(validated);
+        } catch (err: any) {
+          if (err instanceof ZodError) {
+            errors.push({ row: i + 1, error: err.errors[0].message });
+          } else {
+            errors.push({ row: i + 1, error: err.message });
+          }
+        }
+      }
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ error: "Validation errors", details: errors });
+      }
+      
+      const results = await storage.batchCreateMurojaahBulanan(validatedData);
+      res.status(201).json({ success: true, count: results.length, results });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/penambahan/batch", async (req, res) => {
+    try {
+      const { data } = req.body;
+      if (!Array.isArray(data)) {
+        return res.status(400).json({ error: "Expected array of records" });
+      }
+      
+      const validatedData = [];
+      const errors = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        try {
+          const validated = insertPenambahanHafalanSchema.parse(data[i]);
+          validatedData.push(validated);
+        } catch (err: any) {
+          if (err instanceof ZodError) {
+            errors.push({ row: i + 1, error: err.errors[0].message });
+          } else {
+            errors.push({ row: i + 1, error: err.message });
+          }
+        }
+      }
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ error: "Validation errors", details: errors });
+      }
+      
+      const results = await storage.batchCreatePenambahanHafalan(validatedData);
+      res.status(201).json({ success: true, count: results.length, results });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ========== TASKS ==========
   app.get("/api/tasks", async (req, res) => {
     try {

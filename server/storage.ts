@@ -88,6 +88,7 @@ export interface IStorage {
     marhalahId?: string,
   ): Promise<HafalanBulanan[]>;
   createHafalanBulanan(hafalan: InsertHafalanBulanan): Promise<HafalanBulanan>;
+  batchCreateHafalanBulanan(hafalan: InsertHafalanBulanan[]): Promise<HafalanBulanan[]>;
   updateHafalanBulanan(
     id: string,
     hafalan: Partial<InsertHafalanBulanan>,
@@ -102,6 +103,7 @@ export interface IStorage {
   createMurojaahBulanan(
     murojaah: InsertMurojaahBulanan,
   ): Promise<MurojaahBulanan>;
+  batchCreateMurojaahBulanan(murojaah: InsertMurojaahBulanan[]): Promise<MurojaahBulanan[]>;
   updateMurojaahBulanan(
     id: string,
     murojaah: Partial<InsertMurojaahBulanan>,
@@ -116,6 +118,7 @@ export interface IStorage {
   createPenambahanHafalan(
     penambahan: InsertPenambahanHafalan,
   ): Promise<PenambahanHafalan>;
+  batchCreatePenambahanHafalan(penambahan: InsertPenambahanHafalan[]): Promise<PenambahanHafalan[]>;
 
   // Tasks
   getTasks(status?: string): Promise<Tasks[]>;
@@ -462,6 +465,15 @@ export class GoogleSheetsStorage implements IStorage {
     });
   }
 
+  async batchCreateHafalanBulanan(
+    hafalan: InsertHafalanBulanan[],
+  ): Promise<HafalanBulanan[]> {
+    return this.request<HafalanBulanan[]>("/hafalan/batch", {
+      method: "POST",
+      body: JSON.stringify({ data: hafalan }),
+    });
+  }
+
   async updateHafalanBulanan(
     id: string,
     hafalan: Partial<InsertHafalanBulanan>,
@@ -491,6 +503,15 @@ export class GoogleSheetsStorage implements IStorage {
     return this.request<MurojaahBulanan>("/murojaah", {
       method: "POST",
       body: JSON.stringify(murojaah),
+    });
+  }
+
+  async batchCreateMurojaahBulanan(
+    murojaah: InsertMurojaahBulanan[],
+  ): Promise<MurojaahBulanan[]> {
+    return this.request<MurojaahBulanan[]>("/murojaah/batch", {
+      method: "POST",
+      body: JSON.stringify({ data: murojaah }),
     });
   }
 
@@ -527,6 +548,15 @@ export class GoogleSheetsStorage implements IStorage {
     return this.request<PenambahanHafalan>("/penambahan", {
       method: "POST",
       body: JSON.stringify(penambahan),
+    });
+  }
+
+  async batchCreatePenambahanHafalan(
+    penambahan: InsertPenambahanHafalan[],
+  ): Promise<PenambahanHafalan[]> {
+    return this.request<PenambahanHafalan[]>("/penambahan/batch", {
+      method: "POST",
+      body: JSON.stringify({ data: penambahan }),
     });
   }
 
@@ -941,6 +971,17 @@ export class MemStorage implements IStorage {
     return newHafalan;
   }
 
+  async batchCreateHafalanBulanan(
+    hafalan: InsertHafalanBulanan[],
+  ): Promise<HafalanBulanan[]> {
+    const results: HafalanBulanan[] = [];
+    for (const item of hafalan) {
+      const created = await this.createHafalanBulanan(item);
+      results.push(created);
+    }
+    return results;
+  }
+
   async updateHafalanBulanan(
     id: string,
     hafalan: Partial<InsertHafalanBulanan>,
@@ -977,6 +1018,17 @@ export class MemStorage implements IStorage {
     const newMurojaah: MurojaahBulanan = { ...murojaah, MurojaahID: id };
     this.murojaahBulanan.set(id, newMurojaah);
     return newMurojaah;
+  }
+
+  async batchCreateMurojaahBulanan(
+    murojaah: InsertMurojaahBulanan[],
+  ): Promise<MurojaahBulanan[]> {
+    const results: MurojaahBulanan[] = [];
+    for (const item of murojaah) {
+      const created = await this.createMurojaahBulanan(item);
+      results.push(created);
+    }
+    return results;
   }
 
   async updateMurojaahBulanan(
@@ -1021,6 +1073,17 @@ export class MemStorage implements IStorage {
     };
     this.penambahanHafalan.push(newPenambahan);
     return newPenambahan;
+  }
+
+  async batchCreatePenambahanHafalan(
+    penambahan: InsertPenambahanHafalan[],
+  ): Promise<PenambahanHafalan[]> {
+    const results: PenambahanHafalan[] = [];
+    for (const item of penambahan) {
+      const created = await this.createPenambahanHafalan(item);
+      results.push(created);
+    }
+    return results;
   }
 
   async getTasks(status?: string): Promise<Tasks[]> {

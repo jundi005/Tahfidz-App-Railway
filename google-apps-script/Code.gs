@@ -733,35 +733,166 @@ function getMurojaahBulananById(id) {
   return null;
 }
 
+// ========== BATCH IMPORTS ==========
+
+function batchCreateHafalanBulanan(dataArray) {
+  const sheet = getSheet('HafalanBulanan');
+  const results = [];
+  
+  dataArray.forEach(function(body) {
+    const jumlah = Number(body.JumlahHafalan);
+    if (isNaN(jumlah) || jumlah <= 0) {
+      throw new Error('JumlahHafalan must be a positive number');
+    }
+    
+    const id = generateId();
+    sheet.appendRow([
+      id,
+      body.Bulan,
+      body.SantriID,
+      body.HalaqahID,
+      body.MarhalahID,
+      body.Kelas,
+      body.MusammiID,
+      jumlah
+    ]);
+    results.push({ RekapID: id, ...body });
+  });
+  
+  return results;
+}
+
+function batchCreateMurojaahBulanan(dataArray) {
+  const sheet = getSheet('MurojaahBulanan');
+  const results = [];
+  
+  dataArray.forEach(function(body) {
+    const jumlah = Number(body.JumlahMurojaah);
+    if (isNaN(jumlah) || jumlah <= 0) {
+      throw new Error('JumlahMurojaah must be a positive number');
+    }
+    
+    const id = generateId();
+    sheet.appendRow([
+      id,
+      body.Bulan,
+      body.SantriID,
+      body.HalaqahID,
+      body.MarhalahID,
+      body.Kelas,
+      body.MusammiID,
+      jumlah
+    ]);
+    results.push({ MurojaahID: id, ...body });
+  });
+  
+  return results;
+}
+
+function batchCreatePenambahanHafalan(dataArray) {
+  const sheet = getSheet('PenambahanHafalan');
+  const hafalanSheet = getSheet('HafalanBulanan');
+  const results = [];
+  
+  dataArray.forEach(function(body) {
+    const jumlah = Number(body.JumlahPenambahan);
+    if (isNaN(jumlah) || jumlah <= 0) {
+      throw new Error('JumlahPenambahan must be a positive number');
+    }
+    
+    const id = generateId();
+    
+    // Normalize month format to YYYY-MM
+    const normalizedBulan = String(body.Bulan).trim().substring(0, 7);
+    
+    // Save penambahan
+    sheet.appendRow([
+      id,
+      normalizedBulan,
+      body.SantriID,
+      body.HalaqahID,
+      body.MarhalahID,
+      body.Kelas,
+      body.MusammiID,
+      jumlah,
+      body.Catatan || ''
+    ]);
+    
+    // Auto-update HafalanBulanan
+    const juzToAdd = jumlah / HALAMAN_PER_JUZ;
+    const hafalanData = hafalanSheet.getDataRange().getValues();
+    
+    let found = false;
+    for (let i = 1; i < hafalanData.length; i++) {
+      const existingBulan = String(hafalanData[i][1]).trim().substring(0, 7);
+      const existingSantri = String(hafalanData[i][2]).trim();
+      
+      if (existingSantri === String(body.SantriID).trim() && existingBulan === normalizedBulan) {
+        // Update existing - ensure numeric addition
+        const currentJuz = Number(hafalanData[i][7]) || 0;
+        const newJuz = currentJuz + juzToAdd;
+        hafalanSheet.getRange(i + 1, 8).setValue(newJuz);
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      // Create new hafalan record
+      const hafalanId = generateId();
+      hafalanSheet.appendRow([
+        hafalanId,
+        normalizedBulan,
+        body.SantriID,
+        body.HalaqahID,
+        body.MarhalahID,
+        body.Kelas,
+        body.MusammiID,
+        juzToAdd
+      ]);
+    }
+    
+    results.push({ PenambahanID: id, ...body });
+  });
+  
+  return results;
+}
+
 // ========== PENAMBAHAN HAFALAN WITH AUTO UPDATE ==========
 
 function createPenambahanHafalan(body) {
   const id = generateId();
   const sheet = getSheet('PenambahanHafalan');
   
+  // Normalize month format to YYYY-MM
+  const normalizedBulan = String(body.Bulan).trim().substring(0, 7);
+  
   // Save penambahan
   sheet.appendRow([
     id,
-    body.Bulan,
+    normalizedBulan,
     body.SantriID,
     body.HalaqahID,
     body.MarhalahID,
     body.Kelas,
     body.MusammiID,
-    body.JumlahPenambahan,
+    Number(body.JumlahPenambahan),
     body.Catatan || ''
   ]);
   
   // Auto-update HafalanBulanan
-  const juzToAdd = body.JumlahPenambahan / HALAMAN_PER_JUZ;
+  const juzToAdd = Number(body.JumlahPenambahan) / HALAMAN_PER_JUZ;
   const hafalanSheet = getSheet('HafalanBulanan');
   const hafalanData = hafalanSheet.getDataRange().getValues();
   
   let found = false;
   for (let i = 1; i < hafalanData.length; i++) {
-    if (hafalanData[i][2] === body.SantriID && hafalanData[i][1] === body.Bulan) {
-      // Update existing
-      const currentJuz = hafalanData[i][7];
+    const existingBulan = String(hafalanData[i][1]).trim().substring(0, 7);
+    const existingSantri = String(hafalanData[i][2]).trim();
+    
+    if (existingSantri === String(body.SantriID).trim() && existingBulan === normalizedBulan) {
+      // Update existing - ensure numeric addition
+      const currentJuz = Number(hafalanData[i][7]) || 0;
       hafalanSheet.getRange(i + 1, 8).setValue(currentJuz + juzToAdd);
       found = true;
       break;
@@ -772,7 +903,7 @@ function createPenambahanHafalan(body) {
     // Create new HafalanBulanan entry
     hafalanSheet.appendRow([
       generateId(),
-      body.Bulan,
+      normalizedBulan,
       body.SantriID,
       body.HalaqahID,
       body.MarhalahID,
