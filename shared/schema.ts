@@ -238,6 +238,14 @@ export const dashboardStatsSchema = z.object({
     alpa: z.number(),
     terlambat: z.number(),
   }),
+  absensi7Hari: z.array(z.object({
+    tanggal: z.string(),
+    hadir: z.number(),
+    sakit: z.number(),
+    izin: z.number(),
+    alpa: z.number(),
+    terlambat: z.number(),
+  })),
   hafalanBulanIni: z.array(z.object({
     bulan: z.string(),
     rataMutawassitoh: z.number(),

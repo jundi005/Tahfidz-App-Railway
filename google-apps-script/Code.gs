@@ -1075,6 +1075,26 @@ function getDashboardStats() {
     terlambat: todayAbsensi.filter(a => a[6] === 'TERLAMBAT').length
   };
   
+  // Get attendance data for last 7 days
+  const absensi7Hari = [];
+  const todayDate = new Date();
+  
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(todayDate);
+    date.setDate(todayDate.getDate() - i);
+    const dateStr = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const dayAbsensi = absensiData.filter(a => a[1] === dateStr);
+    
+    absensi7Hari.push({
+      tanggal: dateStr,
+      hadir: dayAbsensi.filter(a => a[6] === 'HADIR').length,
+      sakit: dayAbsensi.filter(a => a[6] === 'SAKIT').length,
+      izin: dayAbsensi.filter(a => a[6] === 'IZIN').length,
+      alpa: dayAbsensi.filter(a => a[6] === 'ALPA').length,
+      terlambat: dayAbsensi.filter(a => a[6] === 'TERLAMBAT').length
+    });
+  }
+  
   // Get hafalan data for last 4 months
   const hafalanData = hafalanSheet.getDataRange().getValues().slice(1);
   const monthlyHafalan = {};
@@ -1127,6 +1147,7 @@ function getDashboardStats() {
     musammiHalaqahAliyah,
     musammiHalaqahMutawassitoh,
     absensiHariIni,
+    absensi7Hari,
     hafalanBulanIni
   };
 }

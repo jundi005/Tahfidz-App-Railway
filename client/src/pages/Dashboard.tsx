@@ -68,16 +68,27 @@ export default function Dashboard() {
     return <div className="text-center text-muted-foreground py-8">Data tidak tersedia</div>;
   }
 
-  const attendanceData = [
-    { 
-      name: "Hari Ini", 
-      hadir: stats.absensiHariIni.hadir, 
-      sakit: stats.absensiHariIni.sakit, 
-      izin: stats.absensiHariIni.izin, 
-      alpa: stats.absensiHariIni.alpa, 
-      terlambat: stats.absensiHariIni.terlambat 
-    }
-  ];
+  const attendanceData = stats.absensi7Hari && stats.absensi7Hari.length > 0
+    ? stats.absensi7Hari.map(day => {
+        const date = new Date(day.tanggal);
+        const dayName = date.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+        return {
+          name: dayName,
+          hadir: day.hadir,
+          sakit: day.sakit,
+          izin: day.izin,
+          alpa: day.alpa,
+          terlambat: day.terlambat
+        };
+      })
+    : [{
+        name: "Hari Ini",
+        hadir: stats.absensiHariIni.hadir,
+        sakit: stats.absensiHariIni.sakit,
+        izin: stats.absensiHariIni.izin,
+        alpa: stats.absensiHariIni.alpa,
+        terlambat: stats.absensiHariIni.terlambat
+      }];
 
   const hafalanData = stats.hafalanBulanIni.map(h => ({
     bulan: h.bulan,

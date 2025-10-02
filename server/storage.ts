@@ -1081,6 +1081,32 @@ export class MemStorage implements IStorage {
       terlambat: todayAbsensi.filter((a) => a.StatusID === "TERLAMBAT").length,
     };
 
+    // Calculate attendance for last 7 days
+    const absensi7Hari: Array<{
+      tanggal: string;
+      hadir: number;
+      sakit: number;
+      izin: number;
+      alpa: number;
+      terlambat: number;
+    }> = [];
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(localDate);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split("T")[0];
+      const dayAbsensi = this.absensiSantri.filter((a) => a.Tanggal === dateStr);
+      
+      absensi7Hari.push({
+        tanggal: dateStr,
+        hadir: dayAbsensi.filter((a) => a.StatusID === "HADIR").length,
+        sakit: dayAbsensi.filter((a) => a.StatusID === "SAKIT").length,
+        izin: dayAbsensi.filter((a) => a.StatusID === "IZIN").length,
+        alpa: dayAbsensi.filter((a) => a.StatusID === "ALPA").length,
+        terlambat: dayAbsensi.filter((a) => a.StatusID === "TERLAMBAT").length,
+      });
+    }
+
     // Calculate hafalan per bulan (last 6 months)
     const currentDate = new Date();
     const hafalanBulanIni: Array<{
@@ -1139,6 +1165,7 @@ export class MemStorage implements IStorage {
       musammiHalaqahAliyah,
       musammiHalaqahMutawassitoh,
       absensiHariIni,
+      absensi7Hari,
       hafalanBulanIni,
     };
   }
