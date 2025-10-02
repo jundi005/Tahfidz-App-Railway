@@ -16,7 +16,8 @@ import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 export default function Laporan() {
-  const [tanggal, setTanggal] = useState<string>("");
+  const [tanggalDari, setTanggalDari] = useState<string>("");
+  const [tanggalSampai, setTanggalSampai] = useState<string>("");
   const [marhalahId, setMarhalahId] = useState<string>("all");
   const [kelas, setKelas] = useState<string>("all");
   const [peran, setPeran] = useState<string>("all");
@@ -28,7 +29,8 @@ export default function Laporan() {
 
   const buildQueryString = () => {
     const params = new URLSearchParams();
-    if (tanggal) params.append("tanggal", tanggal);
+    if (tanggalDari) params.append("tanggalDari", tanggalDari);
+    if (tanggalSampai) params.append("tanggalSampai", tanggalSampai);
     if (marhalahId && marhalahId !== "all") params.append("marhalah", marhalahId);
     if (kelas && kelas !== "all") params.append("kelas", kelas);
     if (peran && peran !== "all") params.append("peran", peran);
@@ -85,7 +87,13 @@ export default function Laporan() {
     XLSX.utils.book_append_sheet(wb, ws, 'Laporan Absensi');
 
     const filterInfo = [];
-    if (tanggal) filterInfo.push(`Tanggal: ${tanggal}`);
+    if (tanggalDari && tanggalSampai) {
+      filterInfo.push(`Tanggal: ${tanggalDari} s/d ${tanggalSampai}`);
+    } else if (tanggalDari) {
+      filterInfo.push(`Tanggal Dari: ${tanggalDari}`);
+    } else if (tanggalSampai) {
+      filterInfo.push(`Tanggal Sampai: ${tanggalSampai}`);
+    }
     if (marhalahId && marhalahId !== 'all') {
       const marhalah = lookups?.marhalah.find(m => m.MarhalahID === marhalahId);
       filterInfo.push(`Marhalah: ${marhalah?.NamaMarhalah || marhalahId}`);
@@ -122,7 +130,13 @@ export default function Laporan() {
     doc.setFontSize(10);
     
     const filters = [];
-    if (tanggal) filters.push(`Tanggal: ${tanggal}`);
+    if (tanggalDari && tanggalSampai) {
+      filters.push(`Tanggal: ${tanggalDari} s/d ${tanggalSampai}`);
+    } else if (tanggalDari) {
+      filters.push(`Tanggal Dari: ${tanggalDari}`);
+    } else if (tanggalSampai) {
+      filters.push(`Tanggal Sampai: ${tanggalSampai}`);
+    }
     if (marhalahId && marhalahId !== 'all') {
       const marhalah = lookups?.marhalah.find(m => m.MarhalahID === marhalahId);
       filters.push(`Marhalah: ${marhalah?.NamaMarhalah || marhalahId}`);
@@ -232,15 +246,26 @@ export default function Laporan() {
           <CardTitle>Filter Laporan</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="tanggal">Tanggal</Label>
+              <Label htmlFor="tanggalDari">Tanggal Dari</Label>
               <Input
-                id="tanggal"
+                id="tanggalDari"
                 type="date"
-                value={tanggal}
-                onChange={(e) => setTanggal(e.target.value)}
-                data-testid="input-filter-tanggal"
+                value={tanggalDari}
+                onChange={(e) => setTanggalDari(e.target.value)}
+                data-testid="input-filter-tanggal-dari"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tanggalSampai">Tanggal Sampai</Label>
+              <Input
+                id="tanggalSampai"
+                type="date"
+                value={tanggalSampai}
+                onChange={(e) => setTanggalSampai(e.target.value)}
+                data-testid="input-filter-tanggal-sampai"
               />
             </div>
 

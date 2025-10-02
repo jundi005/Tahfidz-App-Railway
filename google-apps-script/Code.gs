@@ -972,7 +972,13 @@ function getAbsensiReport(params) {
       };
       
       // Apply filters
-      if (params.tanggal && absen.tanggal !== params.tanggal) continue;
+      if (params.tanggalDari && params.tanggalSampai) {
+        if (absen.tanggal < params.tanggalDari || absen.tanggal > params.tanggalSampai) continue;
+      } else if (params.tanggalDari) {
+        if (absen.tanggal < params.tanggalDari) continue;
+      } else if (params.tanggalSampai) {
+        if (absen.tanggal > params.tanggalSampai) continue;
+      }
       if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
       
       // Find santri info
@@ -1006,7 +1012,13 @@ function getAbsensiReport(params) {
       };
       
       // Apply filters
-      if (params.tanggal && absen.tanggal !== params.tanggal) continue;
+      if (params.tanggalDari && params.tanggalSampai) {
+        if (absen.tanggal < params.tanggalDari || absen.tanggal > params.tanggalSampai) continue;
+      } else if (params.tanggalDari) {
+        if (absen.tanggal < params.tanggalDari) continue;
+      } else if (params.tanggalSampai) {
+        if (absen.tanggal > params.tanggalSampai) continue;
+      }
       if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
       
       // Find musammi info

@@ -336,9 +336,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/absensi/report", async (req, res) => {
     try {
-      const { tanggal, marhalah, kelas, peran } = req.query;
+      const { tanggalDari, tanggalSampai, marhalah, kelas, peran } = req.query;
       const report = await storage.getAbsensiReport(
-        tanggal as string,
+        tanggalDari as string,
+        tanggalSampai as string,
         marhalah as string,
         kelas as string,
         peran as string

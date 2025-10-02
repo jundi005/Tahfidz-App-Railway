@@ -75,7 +75,8 @@ export interface IStorage {
     waktuId?: string,
   ): Promise<AbsensiMusammi[]>;
   getAbsensiReport(
-    tanggal?: string,
+    tanggalDari?: string,
+    tanggalSampai?: string,
     marhalahId?: string,
     kelas?: string,
     peran?: string,
@@ -425,13 +426,15 @@ export class GoogleSheetsStorage implements IStorage {
   }
 
   async getAbsensiReport(
-    tanggal?: string,
+    tanggalDari?: string,
+    tanggalSampai?: string,
     marhalahId?: string,
     kelas?: string,
     peran?: string,
   ): Promise<AbsensiReportResponse> {
     const params = new URLSearchParams();
-    if (tanggal) params.append("tanggal", tanggal);
+    if (tanggalDari) params.append("tanggalDari", tanggalDari);
+    if (tanggalSampai) params.append("tanggalSampai", tanggalSampai);
     if (marhalahId) params.append("marhalah", marhalahId);
     if (kelas) params.append("kelas", kelas);
     if (peran) params.append("peran", peran);
@@ -811,7 +814,8 @@ export class MemStorage implements IStorage {
   }
 
   async getAbsensiReport(
-    tanggal?: string,
+    tanggalDari?: string,
+    tanggalSampai?: string,
     marhalahId?: string,
     kelas?: string,
     peran?: string,
@@ -819,9 +823,17 @@ export class MemStorage implements IStorage {
     let reportData: any[] = [];
 
     if (!peran || peran === "santri" || peran === "all") {
-      let santriAbsensi = tanggal
-        ? this.absensiSantri.filter((a) => a.Tanggal === tanggal)
-        : this.absensiSantri;
+      let santriAbsensi = this.absensiSantri;
+      
+      if (tanggalDari && tanggalSampai) {
+        santriAbsensi = santriAbsensi.filter(
+          (a) => a.Tanggal >= tanggalDari && a.Tanggal <= tanggalSampai,
+        );
+      } else if (tanggalDari) {
+        santriAbsensi = santriAbsensi.filter((a) => a.Tanggal >= tanggalDari);
+      } else if (tanggalSampai) {
+        santriAbsensi = santriAbsensi.filter((a) => a.Tanggal <= tanggalSampai);
+      }
 
       if (marhalahId) {
         santriAbsensi = santriAbsensi.filter(
@@ -851,9 +863,17 @@ export class MemStorage implements IStorage {
     }
 
     if (!peran || peran === "musammi" || peran === "all") {
-      let musammiAbsensi = tanggal
-        ? this.absensiMusammi.filter((a) => a.Tanggal === tanggal)
-        : this.absensiMusammi;
+      let musammiAbsensi = this.absensiMusammi;
+      
+      if (tanggalDari && tanggalSampai) {
+        musammiAbsensi = musammiAbsensi.filter(
+          (a) => a.Tanggal >= tanggalDari && a.Tanggal <= tanggalSampai,
+        );
+      } else if (tanggalDari) {
+        musammiAbsensi = musammiAbsensi.filter((a) => a.Tanggal >= tanggalDari);
+      } else if (tanggalSampai) {
+        musammiAbsensi = musammiAbsensi.filter((a) => a.Tanggal <= tanggalSampai);
+      }
 
       if (marhalahId) {
         musammiAbsensi = musammiAbsensi.filter(
