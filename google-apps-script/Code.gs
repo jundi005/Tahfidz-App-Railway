@@ -649,7 +649,7 @@ function getMurojaahBulanan(params) {
   
   for (let i = 1; i < data.length; i++) {
     const item = {
-      RekapID: data[i][0],
+      MurojaahID: data[i][0],
       Bulan: data[i][1],
       SantriID: data[i][2],
       HalaqahID: data[i][3],
@@ -683,7 +683,7 @@ function createMurojaahBulanan(body) {
     body.JumlahMurojaah
   ]);
   
-  return { RekapID: id, ...body };
+  return { MurojaahID: id, ...body };
 }
 
 function updateMurojaahBulanan(id, body) {
@@ -719,7 +719,7 @@ function getMurojaahBulananById(id) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === id) {
       return {
-        RekapID: data[i][0],
+        MurojaahID: data[i][0],
         Bulan: data[i][1],
         SantriID: data[i][2],
         HalaqahID: data[i][3],
@@ -1063,9 +1063,10 @@ function getDashboardStats() {
   const musammiData = musammiSheet.getDataRange().getValues().slice(1);
   const halaqahData = halaqahSheet.getDataRange().getValues().slice(1);
   
-  const totalSantri = santriData.length;
-  const santriMutawassitoh = santriData.filter(s => s[2] === 'MUT').length;
-  const santriAliyah = santriData.filter(s => s[2] === 'ALI').length;
+  // Filter only active santri (column index 4 is Aktif)
+  const totalSantri = santriData.filter(s => s[4] === true).length;
+  const santriMutawassitoh = santriData.filter(s => s[4] === true && s[2] === 'MUT').length;
+  const santriAliyah = santriData.filter(s => s[4] === true && s[2] === 'ALI').length;
   
   const totalMusammi = musammiData.length;
   const musammiAliyah = musammiData.filter(m => m[2] === 'ALI').length;

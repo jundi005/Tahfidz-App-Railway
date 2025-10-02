@@ -491,9 +491,96 @@ export default function Perkembangan() {
                         <TableHead>Halaqah</TableHead>
                         <TableHead>Musammi</TableHead>
                         <TableHead>Murojaah (Juz)</TableHead>
+                        {addingMurojaah && <TableHead>Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
+                      {addingMurojaah && (
+                        <TableRow className="bg-muted/50" data-testid="row-murojaah-new">
+                          <TableCell>
+                            <Input
+                              type="month"
+                              value={murojaahForm.Bulan}
+                              onChange={(e) => setMurojaahForm({ ...murojaahForm, Bulan: e.target.value })}
+                              className="w-32"
+                              data-testid="input-bulan-murojaah"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select value={murojaahForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'murojaah')}>
+                              <SelectTrigger className="w-40" data-testid="select-santri-murojaah">
+                                <SelectValue placeholder="Pilih Santri" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allSantri?.filter(s => s.Aktif).map((s) => (
+                                  <SelectItem key={s.SantriID} value={s.SantriID}>
+                                    {s.NamaSantri}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {murojaahForm.Kelas || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {lookups?.marhalah.find(m => m.MarhalahID === murojaahForm.MarhalahID)?.NamaMarhalah || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Select value={murojaahForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'murojaah')}>
+                              <SelectTrigger className="w-32" data-testid="select-halaqah-murojaah">
+                                <SelectValue placeholder="Pilih Halaqah" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allHalaqah?.filter(h => h.MarhalahID === murojaahForm.MarhalahID).map((h) => {
+                                  const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
+                                  return (
+                                    <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
+                                      {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {allMusammi?.find(m => m.MusammiID === murojaahForm.MusammiID)?.NamaMusammi || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={murojaahForm.JumlahMurojaah}
+                              onChange={(e) => setMurojaahForm({ ...murojaahForm, JumlahMurojaah: parseFloat(e.target.value) || 0 })}
+                              className="w-20"
+                              data-testid="input-jumlah-murojaah"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => createMurojaahMutation.mutate(murojaahForm)}
+                                disabled={createMurojaahMutation.isPending || !murojaahForm.SantriID || !murojaahForm.HalaqahID}
+                                data-testid="button-save-murojaah"
+                              >
+                                {createMurojaahMutation.isPending ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setAddingMurojaah(false);
+                                  resetMurojaahForm();
+                                }}
+                                data-testid="button-cancel-murojaah"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
                       {murojaahData && murojaahData.length > 0 ? (
                         murojaahData.map((m) => {
                           const santri = allSantri?.find(s => s.SantriID === m.SantriID);
@@ -511,13 +598,13 @@ export default function Perkembangan() {
                             </TableRow>
                           );
                         })
-                      ) : (
+                      ) : !addingMurojaah ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center text-muted-foreground">
                             Tidak ada data murojaah untuk bulan {selectedMonth}
                           </TableCell>
                         </TableRow>
-                      )}
+                      ) : null}
                     </TableBody>
                   </Table>
                 </div>
@@ -570,9 +657,109 @@ export default function Perkembangan() {
                         <TableHead>Penambahan (Halaman)</TableHead>
                         <TableHead>Penambahan (Juz)</TableHead>
                         <TableHead>Catatan</TableHead>
+                        {addingPenambahan && <TableHead>Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
+                      {addingPenambahan && (
+                        <TableRow className="bg-muted/50" data-testid="row-penambahan-new">
+                          <TableCell>
+                            <Input
+                              type="month"
+                              value={penambahanForm.Bulan}
+                              onChange={(e) => setPenambahanForm({ ...penambahanForm, Bulan: e.target.value })}
+                              className="w-32"
+                              data-testid="input-bulan-penambahan"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select value={penambahanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'penambahan')}>
+                              <SelectTrigger className="w-40" data-testid="select-santri-penambahan">
+                                <SelectValue placeholder="Pilih Santri" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allSantri?.filter(s => s.Aktif).map((s) => (
+                                  <SelectItem key={s.SantriID} value={s.SantriID}>
+                                    {s.NamaSantri}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {penambahanForm.Kelas || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {lookups?.marhalah.find(m => m.MarhalahID === penambahanForm.MarhalahID)?.NamaMarhalah || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Select value={penambahanForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'penambahan')}>
+                              <SelectTrigger className="w-32" data-testid="select-halaqah-penambahan">
+                                <SelectValue placeholder="Pilih Halaqah" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allHalaqah?.filter(h => h.MarhalahID === penambahanForm.MarhalahID).map((h) => {
+                                  const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
+                                  return (
+                                    <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
+                                      {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {allMusammi?.find(m => m.MusammiID === penambahanForm.MusammiID)?.NamaMusammi || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="1"
+                              value={penambahanForm.JumlahPenambahan}
+                              onChange={(e) => setPenambahanForm({ ...penambahanForm, JumlahPenambahan: parseInt(e.target.value) || 0 })}
+                              className="w-20"
+                              data-testid="input-jumlah-penambahan"
+                            />
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {(penambahanForm.JumlahPenambahan / 20).toFixed(2)}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              value={penambahanForm.Catatan || ''}
+                              onChange={(e) => setPenambahanForm({ ...penambahanForm, Catatan: e.target.value })}
+                              className="w-32"
+                              placeholder="Optional"
+                              data-testid="input-catatan-penambahan"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => createPenambahanMutation.mutate(penambahanForm)}
+                                disabled={createPenambahanMutation.isPending || !penambahanForm.SantriID || !penambahanForm.HalaqahID}
+                                data-testid="button-save-penambahan"
+                              >
+                                {createPenambahanMutation.isPending ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setAddingPenambahan(false);
+                                  resetPenambahanForm();
+                                }}
+                                data-testid="button-cancel-penambahan"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
                       {penambahanData && penambahanData.length > 0 ? (
                         penambahanData.map((p) => {
                           const santri = allSantri?.find(s => s.SantriID === p.SantriID);
@@ -593,13 +780,13 @@ export default function Perkembangan() {
                             </TableRow>
                           );
                         })
-                      ) : (
+                      ) : !addingPenambahan ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center text-muted-foreground">
                             Tidak ada data penambahan hafalan untuk bulan {selectedMonth}
                           </TableCell>
                         </TableRow>
-                      )}
+                      ) : null}
                     </TableBody>
                   </Table>
                 </div>
