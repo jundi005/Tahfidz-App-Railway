@@ -135,7 +135,7 @@ export class GoogleSheetsStorage implements IStorage {
     const url =
       baseUrl ||
       process.env.GOOGLE_APPS_SCRIPT_URL ||
-      "https://script.google.com/macros/s/AKfycbyNVHXs_j04zZQqLQBxw2whirsaymHoOwMQmeDll44zsqmHXhLTSBBLvCmG1YG_BQqS/exec";
+      "https://script.google.com/macros/s/AKfycbx-tIm4L4zIwxPdZCUm3ddFpKsY-01QFm4P-28BIVGtMlzwOCteFDfqYTYatxQ6L9CYuQ/exec";
 
     if (!url || url.trim() === "") {
       throw new Error(
@@ -824,7 +824,7 @@ export class MemStorage implements IStorage {
 
     if (!peran || peran === "santri" || peran === "all") {
       let santriAbsensi = this.absensiSantri;
-      
+
       if (tanggalDari && tanggalSampai) {
         santriAbsensi = santriAbsensi.filter(
           (a) => a.Tanggal >= tanggalDari && a.Tanggal <= tanggalSampai,
@@ -864,7 +864,7 @@ export class MemStorage implements IStorage {
 
     if (!peran || peran === "musammi" || peran === "all") {
       let musammiAbsensi = this.absensiMusammi;
-      
+
       if (tanggalDari && tanggalSampai) {
         musammiAbsensi = musammiAbsensi.filter(
           (a) => a.Tanggal >= tanggalDari && a.Tanggal <= tanggalSampai,
@@ -872,7 +872,9 @@ export class MemStorage implements IStorage {
       } else if (tanggalDari) {
         musammiAbsensi = musammiAbsensi.filter((a) => a.Tanggal >= tanggalDari);
       } else if (tanggalSampai) {
-        musammiAbsensi = musammiAbsensi.filter((a) => a.Tanggal <= tanggalSampai);
+        musammiAbsensi = musammiAbsensi.filter(
+          (a) => a.Tanggal <= tanggalSampai,
+        );
       }
 
       if (marhalahId) {
@@ -1110,13 +1112,15 @@ export class MemStorage implements IStorage {
       alpa: number;
       terlambat: number;
     }> = [];
-    
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date(localDate);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split("T")[0];
-      const dayAbsensi = this.absensiSantri.filter((a) => a.Tanggal === dateStr);
-      
+      const dayAbsensi = this.absensiSantri.filter(
+        (a) => a.Tanggal === dateStr,
+      );
+
       absensi7Hari.push({
         tanggal: dateStr,
         hadir: dayAbsensi.filter((a) => a.StatusID === "HADIR").length,
