@@ -916,6 +916,33 @@ function createPenambahanHafalan(body) {
   return { PenambahanID: id, ...body };
 }
 
+function getPenambahanHafalan(params) {
+  const sheet = getSheet('PenambahanHafalan');
+  const data = sheet.getDataRange().getValues();
+  let penambahan = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    const item = {
+      PenambahanID: data[i][0],
+      Bulan: data[i][1],
+      SantriID: data[i][2],
+      HalaqahID: data[i][3],
+      MarhalahID: data[i][4],
+      Kelas: data[i][5],
+      MusammiID: data[i][6],
+      JumlahPenambahan: data[i][7],
+      Catatan: data[i][8] || ''
+    };
+    
+    if (params.bulan && item.Bulan !== params.bulan) continue;
+    if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
+    
+    penambahan.push(item);
+  }
+  
+  return penambahan;
+}
+
 // ========== TASKS CRUD ==========
 
 function getTasks(params) {
@@ -1345,6 +1372,9 @@ function doGet(e) {
     }
     else if (path === 'murojaah') {
       return jsonResponse(getMurojaahBulanan(params));
+    }
+    else if (path === 'penambahan') {
+      return jsonResponse(getPenambahanHafalan(params));
     }
     else if (path === 'tasks') {
       return jsonResponse(getTasks(params));
