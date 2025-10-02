@@ -20,10 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, TrendingUp, Upload } from "lucide-react";
+import { Plus, TrendingUp, Upload, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import type {
   HafalanBulanan,
   MurojaahBulanan,
@@ -45,6 +48,7 @@ export default function Perkembangan() {
   
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedMarhalah, setSelectedMarhalah] = useState<string>('ALL');
+  const [selectedKelas, setSelectedKelas] = useState<string>('ALL');
 
   // Table-based input state
   const [addingHafalan, setAddingHafalan] = useState(false);
@@ -269,148 +273,142 @@ export default function Perkembangan() {
             return;
           }
           
-          const parseNumber = (val: any): number | null => {
-            if (val === null || val === undefined || val === '') return null;
+          const parseNumber = (val: any): number => {
+            if (val === null || val === undefined || val === '') return 0;
             const num = typeof val === 'string' ? parseFloat(val.trim()) : Number(val);
-            return isNaN(num) ? null : num;
+            return isNaN(num) || num < 0 ? 0 : num;
           };
           
-          const normalizeString = (val: any): string => {
-            return (val || '').toString().trim();
+          const normalizeString = (val: any, defaultVal: string = ''): string => {
+            return (val || defaultVal).toString().trim();
+          };
+          
+          const normalizeMarhalah = (val: any): "MUT" | "ALI" | "JAM" => {
+            const normalized = normalizeString(val, 'MUT').toUpperCase();
+            if (normalized === 'ALI' || normalized === 'JAM') return normalized as "MUT" | "ALI" | "JAM";
+            return 'MUT';
           };
           
           if (type === 'hafalan') {
             const validRows: InsertHafalanBulanan[] = [];
-            const invalidRows: number[] = [];
+            const warnings: string[] = [];
             
             data.forEach((row, index) => {
-              const jumlah = parseNumber(row.JumlahHafalan || row.jumlahHafalan);
-              const bulan = normalizeString(row.Bulan || row.bulan);
-              const santriId = normalizeString(row.SantriID || row.santriId);
-              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId);
+              const jumlah = parseNumber(row.JumlahHafalan || row.jumlahHafalan || row.Hafalan);
+              const bulan = normalizeString(row.Bulan || row.bulan || row.Month, selectedMonth);
+              const santriId = normalizeString(row.SantriID || row.santriId || row.Santri);
+              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId || row.Halaqah);
               
-              if (!bulan || !santriId || !halaqahId || jumlah === null || jumlah <= 0) {
-                invalidRows.push(index + 1);
-              } else {
-                validRows.push({
-                  Bulan: bulan,
-                  SantriID: santriId,
-                  HalaqahID: halaqahId,
-                  MarhalahID: normalizeString(row.MarhalahID || row.marhalahId),
-                  Kelas: normalizeString(row.Kelas || row.kelas),
-                  MusammiID: normalizeString(row.MusammiID || row.musammiId),
-                  JumlahHafalan: jumlah
-                });
+              if (!santriId || !halaqahId) {
+                warnings.push(`Baris ${index + 1}: SantriID atau HalaqahID kosong, dilewati`);
+                return;
               }
-            });
-            
-            if (invalidRows.length > 0) {
-              toast({ 
-                title: `${invalidRows.length} Baris Invalid`, 
-                description: `Baris ${invalidRows.slice(0, 10).join(', ')}${invalidRows.length > 10 ? '...' : ''} memiliki data tidak lengkap atau JumlahHafalan invalid`,
-                variant: "destructive",
-                duration: 7000
+              
+              validRows.push({
+                Bulan: bulan,
+                SantriID: santriId,
+                HalaqahID: halaqahId,
+                MarhalahID: normalizeMarhalah(row.MarhalahID || row.marhalahId || row.Marhalah),
+                Kelas: normalizeString(row.Kelas || row.kelas || row.Class),
+                MusammiID: normalizeString(row.MusammiID || row.musammiId || row.Musammi),
+                JumlahHafalan: jumlah
               });
-              return;
-            }
+            });
             
             if (validRows.length === 0) {
               toast({ 
-                title: "Tidak Ada Data Valid", 
-                description: "Tidak ada baris dengan data lengkap", 
+                title: "Tidak Ada Data", 
+                description: "Tidak ada data yang bisa diimport dari CSV", 
                 variant: "destructive" 
               });
               return;
             }
+            
+            if (warnings.length > 0) {
+              console.log('CSV Upload Warnings:', warnings);
+            }
+            
             batchUploadHafalanMutation.mutate(validRows);
           } else if (type === 'murojaah') {
             const validRows: InsertMurojaahBulanan[] = [];
-            const invalidRows: number[] = [];
+            const warnings: string[] = [];
             
             data.forEach((row, index) => {
-              const jumlah = parseNumber(row.JumlahMurojaah || row.jumlahMurojaah);
-              const bulan = normalizeString(row.Bulan || row.bulan);
-              const santriId = normalizeString(row.SantriID || row.santriId);
-              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId);
+              const jumlah = parseNumber(row.JumlahMurojaah || row.jumlahMurojaah || row.Murojaah);
+              const bulan = normalizeString(row.Bulan || row.bulan || row.Month, selectedMonth);
+              const santriId = normalizeString(row.SantriID || row.santriId || row.Santri);
+              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId || row.Halaqah);
               
-              if (!bulan || !santriId || !halaqahId || jumlah === null || jumlah <= 0) {
-                invalidRows.push(index + 1);
-              } else {
-                validRows.push({
-                  Bulan: bulan,
-                  SantriID: santriId,
-                  HalaqahID: halaqahId,
-                  MarhalahID: normalizeString(row.MarhalahID || row.marhalahId),
-                  Kelas: normalizeString(row.Kelas || row.kelas),
-                  MusammiID: normalizeString(row.MusammiID || row.musammiId),
-                  JumlahMurojaah: jumlah
-                });
+              if (!santriId || !halaqahId) {
+                warnings.push(`Baris ${index + 1}: SantriID atau HalaqahID kosong, dilewati`);
+                return;
               }
-            });
-            
-            if (invalidRows.length > 0) {
-              toast({ 
-                title: `${invalidRows.length} Baris Invalid`, 
-                description: `Baris ${invalidRows.slice(0, 10).join(', ')}${invalidRows.length > 10 ? '...' : ''} memiliki data tidak lengkap atau JumlahMurojaah invalid`,
-                variant: "destructive",
-                duration: 7000
+              
+              validRows.push({
+                Bulan: bulan,
+                SantriID: santriId,
+                HalaqahID: halaqahId,
+                MarhalahID: normalizeMarhalah(row.MarhalahID || row.marhalahId || row.Marhalah),
+                Kelas: normalizeString(row.Kelas || row.kelas || row.Class),
+                MusammiID: normalizeString(row.MusammiID || row.musammiId || row.Musammi),
+                JumlahMurojaah: jumlah
               });
-              return;
-            }
+            });
             
             if (validRows.length === 0) {
               toast({ 
-                title: "Tidak Ada Data Valid", 
-                description: "Tidak ada baris dengan data lengkap", 
+                title: "Tidak Ada Data", 
+                description: "Tidak ada data yang bisa diimport dari CSV", 
                 variant: "destructive" 
               });
               return;
             }
+            
+            if (warnings.length > 0) {
+              console.log('CSV Upload Warnings:', warnings);
+            }
+            
             batchUploadMurojaahMutation.mutate(validRows);
           } else {
             const validRows: InsertPenambahanHafalan[] = [];
-            const invalidRows: number[] = [];
+            const warnings: string[] = [];
             
             data.forEach((row, index) => {
-              const jumlah = parseNumber(row.JumlahPenambahan || row.jumlahPenambahan);
-              const bulan = normalizeString(row.Bulan || row.bulan);
-              const santriId = normalizeString(row.SantriID || row.santriId);
-              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId);
+              const jumlah = parseNumber(row.JumlahPenambahan || row.jumlahPenambahan || row.Penambahan);
+              const bulan = normalizeString(row.Bulan || row.bulan || row.Month, selectedMonth);
+              const santriId = normalizeString(row.SantriID || row.santriId || row.Santri);
+              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId || row.Halaqah);
               
-              if (!bulan || !santriId || !halaqahId || jumlah === null || jumlah <= 0) {
-                invalidRows.push(index + 1);
-              } else {
-                validRows.push({
-                  Bulan: bulan,
-                  SantriID: santriId,
-                  HalaqahID: halaqahId,
-                  MarhalahID: normalizeString(row.MarhalahID || row.marhalahId),
-                  Kelas: normalizeString(row.Kelas || row.kelas),
-                  MusammiID: normalizeString(row.MusammiID || row.musammiId),
-                  JumlahPenambahan: Math.round(jumlah),
-                  Catatan: normalizeString(row.Catatan || row.catatan)
-                });
+              if (!santriId || !halaqahId) {
+                warnings.push(`Baris ${index + 1}: SantriID atau HalaqahID kosong, dilewati`);
+                return;
               }
-            });
-            
-            if (invalidRows.length > 0) {
-              toast({ 
-                title: `${invalidRows.length} Baris Invalid`, 
-                description: `Baris ${invalidRows.slice(0, 10).join(', ')}${invalidRows.length > 10 ? '...' : ''} memiliki data tidak lengkap atau JumlahPenambahan invalid`,
-                variant: "destructive",
-                duration: 7000
+              
+              validRows.push({
+                Bulan: bulan,
+                SantriID: santriId,
+                HalaqahID: halaqahId,
+                MarhalahID: normalizeMarhalah(row.MarhalahID || row.marhalahId || row.Marhalah),
+                Kelas: normalizeString(row.Kelas || row.kelas || row.Class),
+                MusammiID: normalizeString(row.MusammiID || row.musammiId || row.Musammi),
+                JumlahPenambahan: Math.round(jumlah),
+                Catatan: normalizeString(row.Catatan || row.catatan || row.Notes)
               });
-              return;
-            }
+            });
             
             if (validRows.length === 0) {
               toast({ 
-                title: "Tidak Ada Data Valid", 
-                description: "Tidak ada baris dengan data lengkap", 
+                title: "Tidak Ada Data", 
+                description: "Tidak ada data yang bisa diimport dari CSV", 
                 variant: "destructive" 
               });
               return;
             }
+            
+            if (warnings.length > 0) {
+              console.log('CSV Upload Warnings:', warnings);
+            }
+            
             batchUploadPenambahanMutation.mutate(validRows);
           }
         } catch (error: any) {
@@ -507,6 +505,180 @@ export default function Perkembangan() {
     }
   };
 
+  const exportToExcel = (data: any[], filename: string, type: 'hafalan' | 'murojaah' | 'penambahan') => {
+    let exportData: any[] = [];
+    
+    if (type === 'hafalan') {
+      exportData = data.map((item: HafalanBulanan) => {
+        const santri = allSantri?.find(s => s.SantriID === item.SantriID);
+        const halaqah = allHalaqah?.find(h => h.HalaqahID === item.HalaqahID);
+        const musammi = allMusammi?.find(m => m.MusammiID === item.MusammiID);
+        const marhalah = lookups?.marhalah.find(m => m.MarhalahID === item.MarhalahID);
+        
+        return {
+          'Bulan': item.Bulan,
+          'Nama Santri': santri?.NamaSantri || 'N/A',
+          'Kelas': item.Kelas,
+          'Marhalah': marhalah?.NamaMarhalah || item.MarhalahID,
+          'Halaqah': halaqah?.NomorUrutHalaqah || 'N/A',
+          'Musammi': musammi?.NamaMusammi || 'N/A',
+          'Hafalan (Juz)': item.JumlahHafalan
+        };
+      });
+    } else if (type === 'murojaah') {
+      exportData = data.map((item: MurojaahBulanan) => {
+        const santri = allSantri?.find(s => s.SantriID === item.SantriID);
+        const halaqah = allHalaqah?.find(h => h.HalaqahID === item.HalaqahID);
+        const musammi = allMusammi?.find(m => m.MusammiID === item.MusammiID);
+        const marhalah = lookups?.marhalah.find(m => m.MarhalahID === item.MarhalahID);
+        
+        return {
+          'Bulan': item.Bulan,
+          'Nama Santri': santri?.NamaSantri || 'N/A',
+          'Kelas': item.Kelas,
+          'Marhalah': marhalah?.NamaMarhalah || item.MarhalahID,
+          'Halaqah': halaqah?.NomorUrutHalaqah || 'N/A',
+          'Musammi': musammi?.NamaMusammi || 'N/A',
+          'Murojaah (Juz)': item.JumlahMurojaah
+        };
+      });
+    } else {
+      exportData = data.map((item: PenambahanHafalan) => {
+        const santri = allSantri?.find(s => s.SantriID === item.SantriID);
+        const halaqah = allHalaqah?.find(h => h.HalaqahID === item.HalaqahID);
+        const musammi = allMusammi?.find(m => m.MusammiID === item.MusammiID);
+        const marhalah = lookups?.marhalah.find(m => m.MarhalahID === item.MarhalahID);
+        const juz = (item.JumlahPenambahan / 20).toFixed(2);
+        
+        return {
+          'Bulan': item.Bulan,
+          'Nama Santri': santri?.NamaSantri || 'N/A',
+          'Kelas': item.Kelas,
+          'Marhalah': marhalah?.NamaMarhalah || item.MarhalahID,
+          'Halaqah': halaqah?.NomorUrutHalaqah || 'N/A',
+          'Musammi': musammi?.NamaMusammi || 'N/A',
+          'Penambahan (Halaman)': item.JumlahPenambahan,
+          'Penambahan (Juz)': juz,
+          'Catatan': item.Catatan || '-'
+        };
+      });
+    }
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+    
+    toast({
+      title: "Berhasil Export",
+      description: `Data berhasil diexport ke ${filename}.xlsx`
+    });
+  };
+
+  const exportToPDF = (data: any[], filename: string, type: 'hafalan' | 'murojaah' | 'penambahan') => {
+    const doc = new jsPDF();
+    
+    let title = '';
+    let headers: string[][] = [];
+    let rows: any[][] = [];
+    
+    if (type === 'hafalan') {
+      title = 'Data Hafalan Bulanan';
+      headers = [['Bulan', 'Nama Santri', 'Kelas', 'Marhalah', 'Halaqah', 'Musammi', 'Hafalan (Juz)']];
+      rows = data.map((item: HafalanBulanan) => {
+        const santri = allSantri?.find(s => s.SantriID === item.SantriID);
+        const halaqah = allHalaqah?.find(h => h.HalaqahID === item.HalaqahID);
+        const musammi = allMusammi?.find(m => m.MusammiID === item.MusammiID);
+        const marhalah = lookups?.marhalah.find(m => m.MarhalahID === item.MarhalahID);
+        
+        return [
+          item.Bulan,
+          santri?.NamaSantri || 'N/A',
+          item.Kelas,
+          marhalah?.NamaMarhalah || item.MarhalahID,
+          halaqah?.NomorUrutHalaqah?.toString() || 'N/A',
+          musammi?.NamaMusammi || 'N/A',
+          item.JumlahHafalan.toString()
+        ];
+      });
+    } else if (type === 'murojaah') {
+      title = 'Data Murojaah Bulanan';
+      headers = [['Bulan', 'Nama Santri', 'Kelas', 'Marhalah', 'Halaqah', 'Musammi', 'Murojaah (Juz)']];
+      rows = data.map((item: MurojaahBulanan) => {
+        const santri = allSantri?.find(s => s.SantriID === item.SantriID);
+        const halaqah = allHalaqah?.find(h => h.HalaqahID === item.HalaqahID);
+        const musammi = allMusammi?.find(m => m.MusammiID === item.MusammiID);
+        const marhalah = lookups?.marhalah.find(m => m.MarhalahID === item.MarhalahID);
+        
+        return [
+          item.Bulan,
+          santri?.NamaSantri || 'N/A',
+          item.Kelas,
+          marhalah?.NamaMarhalah || item.MarhalahID,
+          halaqah?.NomorUrutHalaqah?.toString() || 'N/A',
+          musammi?.NamaMusammi || 'N/A',
+          item.JumlahMurojaah.toString()
+        ];
+      });
+    } else {
+      title = 'Data Penambahan Hafalan';
+      headers = [['Bulan', 'Nama Santri', 'Kelas', 'Marhalah', 'Halaqah', 'Musammi', 'Penambahan (Hal)', 'Penambahan (Juz)', 'Catatan']];
+      rows = data.map((item: PenambahanHafalan) => {
+        const santri = allSantri?.find(s => s.SantriID === item.SantriID);
+        const halaqah = allHalaqah?.find(h => h.HalaqahID === item.HalaqahID);
+        const musammi = allMusammi?.find(m => m.MusammiID === item.MusammiID);
+        const marhalah = lookups?.marhalah.find(m => m.MarhalahID === item.MarhalahID);
+        const juz = (item.JumlahPenambahan / 20).toFixed(2);
+        
+        return [
+          item.Bulan,
+          santri?.NamaSantri || 'N/A',
+          item.Kelas,
+          marhalah?.NamaMarhalah || item.MarhalahID,
+          halaqah?.NomorUrutHalaqah?.toString() || 'N/A',
+          musammi?.NamaMusammi || 'N/A',
+          item.JumlahPenambahan.toString(),
+          juz,
+          item.Catatan || '-'
+        ];
+      });
+    }
+    
+    doc.setFontSize(16);
+    doc.text(title, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Bulan: ${selectedMonth}`, 14, 28);
+    doc.text(`Filter: ${selectedMarhalah === 'ALL' ? 'Semua Marhalah' : lookups?.marhalah.find(m => m.MarhalahID === selectedMarhalah)?.NamaMarhalah || selectedMarhalah}`, 14, 34);
+    if (selectedKelas !== 'ALL') {
+      doc.text(`Kelas: ${selectedKelas}`, 14, 40);
+    }
+    
+    autoTable(doc, {
+      head: headers,
+      body: rows,
+      startY: selectedKelas !== 'ALL' ? 45 : 40,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+    
+    doc.save(`${filename}.pdf`);
+    
+    toast({
+      title: "Berhasil Export",
+      description: `Data berhasil diexport ke ${filename}.pdf`
+    });
+  };
+
+  const getFilteredData = <T extends { Kelas: string }>(data: T[] | undefined): T[] => {
+    if (!data) return [];
+    if (selectedKelas === 'ALL') return data;
+    return data.filter(item => item.Kelas === selectedKelas);
+  };
+
+  const filteredHafalanData = getFilteredData(hafalanData);
+  const filteredMurojaahData = getFilteredData(murojaahData);
+  const filteredPenambahanData = getFilteredData(penambahanData);
+
   return (
     <div className="space-y-6">
       <div>
@@ -516,7 +688,7 @@ export default function Perkembangan() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="month-filter">Bulan</Label>
           <Input
@@ -543,6 +715,26 @@ export default function Perkembangan() {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="kelas-filter">Filter Kelas</Label>
+          <Select value={selectedKelas} onValueChange={setSelectedKelas}>
+            <SelectTrigger id="kelas-filter" data-testid="select-kelas-filter">
+              <SelectValue placeholder="Semua Kelas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Semua</SelectItem>
+              {Array.from(new Set(
+                (lookups?.kelas || [])
+                  .filter(k => selectedMarhalah === 'ALL' || k.MarhalahID === selectedMarhalah)
+                  .map(k => k.Kelas)
+              )).map((kelas) => (
+                <SelectItem key={kelas} value={kelas}>
+                  {kelas}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Tabs defaultValue="hafalan" className="space-y-4">
@@ -559,7 +751,7 @@ export default function Perkembangan() {
         </TabsList>
 
         <TabsContent value="hafalan" className="space-y-4">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <input
               ref={hafalanFileRef}
               type="file"
@@ -576,6 +768,7 @@ export default function Perkembangan() {
             />
             <Button
               variant="outline"
+              size="sm"
               onClick={() => hafalanFileRef.current?.click()}
               disabled={batchUploadHafalanMutation.isPending}
               data-testid="button-upload-hafalan"
@@ -583,7 +776,28 @@ export default function Perkembangan() {
               <Upload className="h-4 w-4 mr-2" />
               {batchUploadHafalanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToExcel(filteredHafalanData, `hafalan-bulanan-${selectedMonth}`, 'hafalan')}
+              disabled={!filteredHafalanData || filteredHafalanData.length === 0}
+              data-testid="button-export-excel-hafalan"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToPDF(filteredHafalanData, `hafalan-bulanan-${selectedMonth}`, 'hafalan')}
+              disabled={!filteredHafalanData || filteredHafalanData.length === 0}
+              data-testid="button-export-pdf-hafalan"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
             <Button 
+              size="sm"
               onClick={() => {
                 resetHafalanForm();
                 setAddingHafalan(true);
@@ -592,7 +806,7 @@ export default function Perkembangan() {
               data-testid="button-add-hafalan"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Tambah Data Hafalan
+              Tambah Data
             </Button>
           </div>
           
@@ -709,8 +923,8 @@ export default function Perkembangan() {
                           </TableCell>
                         </TableRow>
                       )}
-                      {hafalanData && hafalanData.length > 0 ? (
-                        hafalanData.map((h) => {
+                      {filteredHafalanData && filteredHafalanData.length > 0 ? (
+                        filteredHafalanData.map((h) => {
                           const santri = allSantri?.find(s => s.SantriID === h.SantriID);
                           const halaqah = allHalaqah?.find(ha => ha.HalaqahID === h.HalaqahID);
                           const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
@@ -742,7 +956,7 @@ export default function Perkembangan() {
         </TabsContent>
 
         <TabsContent value="murojaah" className="space-y-4">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <input
               ref={murojaahFileRef}
               type="file"
@@ -759,6 +973,7 @@ export default function Perkembangan() {
             />
             <Button
               variant="outline"
+              size="sm"
               onClick={() => murojaahFileRef.current?.click()}
               disabled={batchUploadMurojaahMutation.isPending}
               data-testid="button-upload-murojaah"
@@ -766,7 +981,28 @@ export default function Perkembangan() {
               <Upload className="h-4 w-4 mr-2" />
               {batchUploadMurojaahMutation.isPending ? 'Uploading...' : 'Upload CSV'}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToExcel(filteredMurojaahData, `murojaah-bulanan-${selectedMonth}`, 'murojaah')}
+              disabled={!filteredMurojaahData || filteredMurojaahData.length === 0}
+              data-testid="button-export-excel-murojaah"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToPDF(filteredMurojaahData, `murojaah-bulanan-${selectedMonth}`, 'murojaah')}
+              disabled={!filteredMurojaahData || filteredMurojaahData.length === 0}
+              data-testid="button-export-pdf-murojaah"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
             <Button 
+              size="sm"
               onClick={() => {
                 resetMurojaahForm();
                 setAddingMurojaah(true);
@@ -775,7 +1011,7 @@ export default function Perkembangan() {
               data-testid="button-add-murojaah"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Tambah Data Murojaah
+              Tambah Data
             </Button>
           </div>
           
@@ -892,8 +1128,8 @@ export default function Perkembangan() {
                           </TableCell>
                         </TableRow>
                       )}
-                      {murojaahData && murojaahData.length > 0 ? (
-                        murojaahData.map((m) => {
+                      {filteredMurojaahData && filteredMurojaahData.length > 0 ? (
+                        filteredMurojaahData.map((m) => {
                           const santri = allSantri?.find(s => s.SantriID === m.SantriID);
                           const halaqah = allHalaqah?.find(ha => ha.HalaqahID === m.HalaqahID);
                           const musammi = allMusammi?.find(mu => mu.MusammiID === m.MusammiID);
@@ -925,7 +1161,7 @@ export default function Perkembangan() {
         </TabsContent>
 
         <TabsContent value="penambahan" className="space-y-4">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <input
               ref={penambahanFileRef}
               type="file"
@@ -942,6 +1178,7 @@ export default function Perkembangan() {
             />
             <Button
               variant="outline"
+              size="sm"
               onClick={() => penambahanFileRef.current?.click()}
               disabled={batchUploadPenambahanMutation.isPending}
               data-testid="button-upload-penambahan"
@@ -949,7 +1186,28 @@ export default function Perkembangan() {
               <Upload className="h-4 w-4 mr-2" />
               {batchUploadPenambahanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToExcel(filteredPenambahanData, `penambahan-hafalan-${selectedMonth}`, 'penambahan')}
+              disabled={!filteredPenambahanData || filteredPenambahanData.length === 0}
+              data-testid="button-export-excel-penambahan"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToPDF(filteredPenambahanData, `penambahan-hafalan-${selectedMonth}`, 'penambahan')}
+              disabled={!filteredPenambahanData || filteredPenambahanData.length === 0}
+              data-testid="button-export-pdf-penambahan"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
             <Button 
+              size="sm"
               onClick={() => {
                 resetPenambahanForm();
                 setAddingPenambahan(true);
@@ -958,7 +1216,7 @@ export default function Perkembangan() {
               data-testid="button-add-penambahan"
             >
               <TrendingUp className="h-4 w-4 mr-2" />
-              Tambah Penambahan Hafalan
+              Tambah Data
             </Button>
           </div>
           
@@ -1094,8 +1352,8 @@ export default function Perkembangan() {
                           </TableCell>
                         </TableRow>
                       )}
-                      {penambahanData && penambahanData.length > 0 ? (
-                        penambahanData.map((p) => {
+                      {filteredPenambahanData && filteredPenambahanData.length > 0 ? (
+                        filteredPenambahanData.map((p) => {
                           const santri = allSantri?.find(s => s.SantriID === p.SantriID);
                           const halaqah = allHalaqah?.find(ha => ha.HalaqahID === p.HalaqahID);
                           const musammi = allMusammi?.find(m => m.MusammiID === p.MusammiID);
