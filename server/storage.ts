@@ -108,7 +108,10 @@ export interface IStorage {
   deleteMurojaahBulanan(id: string): Promise<void>;
 
   // Penambahan Hafalan
-  getPenambahanHafalan(bulan?: string, marhalahId?: string): Promise<PenambahanHafalan[]>;
+  getPenambahanHafalan(
+    bulan?: string,
+    marhalahId?: string,
+  ): Promise<PenambahanHafalan[]>;
   createPenambahanHafalan(
     penambahan: InsertPenambahanHafalan,
   ): Promise<PenambahanHafalan>;
@@ -131,7 +134,7 @@ export class GoogleSheetsStorage implements IStorage {
     const url =
       baseUrl ||
       process.env.GOOGLE_APPS_SCRIPT_URL ||
-      "https://script.google.com/macros/s/AKfycbwVlwonkTNv76O8aj3VrKYfxRoUePtov5-znbUcfYqsfbkdA6dewBxQ0MGA3SEwMZoyXA/exec";
+      "https://script.google.com/macros/s/AKfycbyNVHXs_j04zZQqLQBxw2whirsaymHoOwMQmeDll44zsqmHXhLTSBBLvCmG1YG_BQqS/exec";
 
     if (!url || url.trim() === "") {
       throw new Error(
@@ -174,10 +177,17 @@ export class GoogleSheetsStorage implements IStorage {
       // Path with ID like 'halaqah/123' or path with subpath like 'dashboard/stats'
       const firstSegment = pathSegments[0];
       const secondSegment = pathSegments[1];
-      
+
       // Resources that have IDs
-      const resourcesWithIds = ['halaqah', 'musammi', 'santri', 'hafalan', 'murojaah', 'tasks'];
-      
+      const resourcesWithIds = [
+        "halaqah",
+        "musammi",
+        "santri",
+        "hafalan",
+        "murojaah",
+        "tasks",
+      ];
+
       if (resourcesWithIds.includes(firstSegment)) {
         // This is a resource with an ID
         url.searchParams.set("path", firstSegment);
@@ -495,13 +505,16 @@ export class GoogleSheetsStorage implements IStorage {
     await this.request(`/murojaah/${id}`, { method: "DELETE" });
   }
 
-  async getPenambahanHafalan(bulan?: string, marhalahId?: string): Promise<PenambahanHafalan[]> {
+  async getPenambahanHafalan(
+    bulan?: string,
+    marhalahId?: string,
+  ): Promise<PenambahanHafalan[]> {
     const params = new URLSearchParams();
     if (bulan) params.append("bulan", bulan);
     if (marhalahId) params.append("marhalah", marhalahId);
     const queryString = params.toString();
     return this.request<PenambahanHafalan[]>(
-      queryString ? `/penambahan?${queryString}` : "/penambahan"
+      queryString ? `/penambahan?${queryString}` : "/penambahan",
     );
   }
 
@@ -805,13 +818,15 @@ export class MemStorage implements IStorage {
   ): Promise<AbsensiReportResponse> {
     let reportData: any[] = [];
 
-    if (!peran || peran === 'santri' || peran === 'all') {
+    if (!peran || peran === "santri" || peran === "all") {
       let santriAbsensi = tanggal
         ? this.absensiSantri.filter((a) => a.Tanggal === tanggal)
         : this.absensiSantri;
-      
+
       if (marhalahId) {
-        santriAbsensi = santriAbsensi.filter((a) => a.MarhalahID === marhalahId);
+        santriAbsensi = santriAbsensi.filter(
+          (a) => a.MarhalahID === marhalahId,
+        );
       }
 
       santriAbsensi.forEach((absen) => {
@@ -826,8 +841,8 @@ export class MemStorage implements IStorage {
             halaqahId: absen.HalaqahID,
             personId: absen.SantriID,
             statusId: absen.StatusID,
-            keterangan: absen.Keterangan || '',
-            peran: 'Santri',
+            keterangan: absen.Keterangan || "",
+            peran: "Santri",
             nama: santri.NamaSantri,
             kelas: santri.Kelas,
           });
@@ -835,13 +850,15 @@ export class MemStorage implements IStorage {
       });
     }
 
-    if (!peran || peran === 'musammi' || peran === 'all') {
+    if (!peran || peran === "musammi" || peran === "all") {
       let musammiAbsensi = tanggal
         ? this.absensiMusammi.filter((a) => a.Tanggal === tanggal)
         : this.absensiMusammi;
-      
+
       if (marhalahId) {
-        musammiAbsensi = musammiAbsensi.filter((a) => a.MarhalahID === marhalahId);
+        musammiAbsensi = musammiAbsensi.filter(
+          (a) => a.MarhalahID === marhalahId,
+        );
       }
 
       musammiAbsensi.forEach((absen) => {
@@ -856,8 +873,8 @@ export class MemStorage implements IStorage {
             halaqahId: absen.HalaqahID,
             personId: absen.MusammiID,
             statusId: absen.StatusID,
-            keterangan: absen.Keterangan || '',
-            peran: 'Musammi',
+            keterangan: absen.Keterangan || "",
+            peran: "Musammi",
             nama: musammi.NamaMusammi,
             kelas: musammi.KelasMusammi,
           });
@@ -866,11 +883,11 @@ export class MemStorage implements IStorage {
     }
 
     const stats = {
-      hadir: reportData.filter((a) => a.statusId === 'HADIR').length,
-      sakit: reportData.filter((a) => a.statusId === 'SAKIT').length,
-      izin: reportData.filter((a) => a.statusId === 'IZIN').length,
-      alpa: reportData.filter((a) => a.statusId === 'ALPA').length,
-      terlambat: reportData.filter((a) => a.statusId === 'TERLAMBAT').length,
+      hadir: reportData.filter((a) => a.statusId === "HADIR").length,
+      sakit: reportData.filter((a) => a.statusId === "SAKIT").length,
+      izin: reportData.filter((a) => a.statusId === "IZIN").length,
+      alpa: reportData.filter((a) => a.statusId === "ALPA").length,
+      terlambat: reportData.filter((a) => a.statusId === "TERLAMBAT").length,
     };
 
     return {
@@ -956,17 +973,20 @@ export class MemStorage implements IStorage {
     this.murojaahBulanan.delete(id);
   }
 
-  async getPenambahanHafalan(bulan?: string, marhalahId?: string): Promise<PenambahanHafalan[]> {
+  async getPenambahanHafalan(
+    bulan?: string,
+    marhalahId?: string,
+  ): Promise<PenambahanHafalan[]> {
     let result = [...this.penambahanHafalan];
-    
+
     if (bulan) {
       result = result.filter((p) => p.Bulan === bulan);
     }
-    
+
     if (marhalahId) {
       result = result.filter((p) => p.MarhalahID === marhalahId);
     }
-    
+
     return result;
   }
 
@@ -1014,13 +1034,17 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     const today = localDate.toISOString().split("T")[0];
-    
+
     // Log for debugging
-    console.log('[getDashboardStats] Today date:', today);
-    console.log('[getDashboardStats] Total absensi records:', this.absensiSantri.length);
+    console.log("[getDashboardStats] Today date:", today);
+    console.log(
+      "[getDashboardStats] Total absensi records:",
+      this.absensiSantri.length,
+    );
     if (this.absensiSantri.length > 0) {
-      console.log('[getDashboardStats] Sample absensi dates:', 
-        this.absensiSantri.slice(0, 3).map(a => a.Tanggal)
+      console.log(
+        "[getDashboardStats] Sample absensi dates:",
+        this.absensiSantri.slice(0, 3).map((a) => a.Tanggal),
       );
     }
     const totalSantri = Array.from(this.santri.values()).filter(
@@ -1059,26 +1083,45 @@ export class MemStorage implements IStorage {
 
     // Calculate hafalan per bulan (last 6 months)
     const currentDate = new Date();
-    const hafalanBulanIni: Array<{ bulan: string; rataMutawassitoh: number; rataAliyah: number }> = [];
+    const hafalanBulanIni: Array<{
+      bulan: string;
+      rataMutawassitoh: number;
+      rataAliyah: number;
+    }> = [];
     const allHafalan = Array.from(this.hafalanBulanan.values());
-    
+
     for (let i = 5; i >= 0; i--) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const date = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() - i,
+        1,
+      );
       const bulan = date.toISOString().substring(0, 7); // YYYY-MM format
-      const bulanName = date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-      
+      const bulanName = date.toLocaleDateString("id-ID", {
+        month: "short",
+        year: "numeric",
+      });
+
       // Get hafalan for this month
-      const hafalanMut = allHafalan.filter(h => h.Bulan === bulan && h.MarhalahID === 'MUT');
-      const hafalanAli = allHafalan.filter(h => h.Bulan === bulan && h.MarhalahID === 'ALI');
-      
+      const hafalanMut = allHafalan.filter(
+        (h) => h.Bulan === bulan && h.MarhalahID === "MUT",
+      );
+      const hafalanAli = allHafalan.filter(
+        (h) => h.Bulan === bulan && h.MarhalahID === "ALI",
+      );
+
       // Calculate average
-      const rataMutawassitoh = hafalanMut.length > 0 
-        ? hafalanMut.reduce((sum, h) => sum + h.JumlahHafalan, 0) / hafalanMut.length 
-        : 0;
-      const rataAliyah = hafalanAli.length > 0 
-        ? hafalanAli.reduce((sum, h) => sum + h.JumlahHafalan, 0) / hafalanAli.length 
-        : 0;
-      
+      const rataMutawassitoh =
+        hafalanMut.length > 0
+          ? hafalanMut.reduce((sum, h) => sum + h.JumlahHafalan, 0) /
+            hafalanMut.length
+          : 0;
+      const rataAliyah =
+        hafalanAli.length > 0
+          ? hafalanAli.reduce((sum, h) => sum + h.JumlahHafalan, 0) /
+            hafalanAli.length
+          : 0;
+
       hafalanBulanIni.push({
         bulan: bulanName,
         rataMutawassitoh: Math.round(rataMutawassitoh * 10) / 10, // Round to 1 decimal
