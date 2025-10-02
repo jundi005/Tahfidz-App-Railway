@@ -20,9 +20,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, TrendingUp, Upload, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Plus, TrendingUp, Upload, Download, FileSpreadsheet, FileText, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -280,7 +285,9 @@ export default function Perkembangan() {
           };
           
           const normalizeString = (val: any, defaultVal: string = ''): string => {
-            return (val || defaultVal).toString().trim();
+            if (val === null || val === undefined) return defaultVal;
+            const str = val.toString().trim();
+            return str === '' ? defaultVal : str;
           };
           
           const normalizeMarhalah = (val: any): "MUT" | "ALI" | "JAM" => {
@@ -289,43 +296,82 @@ export default function Perkembangan() {
             return 'MUT';
           };
           
+          const findValue = (row: any, possibleKeys: string[]): any => {
+            for (const key of possibleKeys) {
+              if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                return row[key];
+              }
+            }
+            return '';
+          };
+          
           if (type === 'hafalan') {
             const validRows: InsertHafalanBulanan[] = [];
             const warnings: string[] = [];
             
             data.forEach((row, index) => {
-              const jumlah = parseNumber(row.JumlahHafalan || row.jumlahHafalan || row.Hafalan);
-              const bulan = normalizeString(row.Bulan || row.bulan || row.Month, selectedMonth);
-              const santriId = normalizeString(row.SantriID || row.santriId || row.Santri);
-              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId || row.Halaqah);
+              const santriId = normalizeString(findValue(row, [
+                'SantriID', 'santriId', 'santri_id', 'Santri', 'santri', 'NamaSantri', 'nama_santri'
+              ]));
+              const halaqahId = normalizeString(findValue(row, [
+                'HalaqahID', 'halaqahId', 'halaqah_id', 'Halaqah', 'halaqah', 'NomorHalaqah', 'nomor_halaqah'
+              ]));
+              
+              if (!santriId) {
+                warnings.push(`Baris ${index + 2}: SantriID kosong`);
+              }
+              if (!halaqahId) {
+                warnings.push(`Baris ${index + 2}: HalaqahID kosong`);
+              }
               
               if (!santriId || !halaqahId) {
-                warnings.push(`Baris ${index + 1}: SantriID atau HalaqahID kosong, dilewati`);
                 return;
               }
+              
+              const bulan = normalizeString(findValue(row, [
+                'Bulan', 'bulan', 'Month', 'month', 'Tanggal', 'tanggal'
+              ]), selectedMonth);
+              const jumlah = parseNumber(findValue(row, [
+                'JumlahHafalan', 'jumlahHafalan', 'jumlah_hafalan', 'Hafalan', 'hafalan', 'Jumlah', 'jumlah'
+              ]));
               
               validRows.push({
                 Bulan: bulan,
                 SantriID: santriId,
                 HalaqahID: halaqahId,
-                MarhalahID: normalizeMarhalah(row.MarhalahID || row.marhalahId || row.Marhalah),
-                Kelas: normalizeString(row.Kelas || row.kelas || row.Class),
-                MusammiID: normalizeString(row.MusammiID || row.musammiId || row.Musammi),
+                MarhalahID: normalizeMarhalah(findValue(row, [
+                  'MarhalahID', 'marhalahId', 'marhalah_id', 'Marhalah', 'marhalah'
+                ])),
+                Kelas: normalizeString(findValue(row, [
+                  'Kelas', 'kelas', 'Class', 'class'
+                ])),
+                MusammiID: normalizeString(findValue(row, [
+                  'MusammiID', 'musammiId', 'musammi_id', 'Musammi', 'musammi', 'NamaMusammi', 'nama_musammi'
+                ])),
                 JumlahHafalan: jumlah
               });
             });
             
             if (validRows.length === 0) {
+              const errorMsg = warnings.length > 0 
+                ? `Tidak ada data valid. ${warnings.slice(0, 3).join('; ')}${warnings.length > 3 ? '...' : ''}. Pastikan CSV memiliki kolom: SantriID, HalaqahID, JumlahHafalan` 
+                : "Tidak ada data yang bisa diimport dari CSV. Pastikan CSV memiliki kolom: SantriID, HalaqahID, JumlahHafalan";
+              
               toast({ 
-                title: "Tidak Ada Data", 
-                description: "Tidak ada data yang bisa diimport dari CSV", 
-                variant: "destructive" 
+                title: "Tidak Ada Data Valid", 
+                description: errorMsg, 
+                variant: "destructive",
+                duration: 10000
               });
               return;
             }
             
             if (warnings.length > 0) {
-              console.log('CSV Upload Warnings:', warnings);
+              toast({
+                title: `Berhasil Import ${validRows.length} Data`,
+                description: `${warnings.length} baris dilewati karena data tidak lengkap`,
+                duration: 5000
+              });
             }
             
             batchUploadHafalanMutation.mutate(validRows);
@@ -334,38 +380,68 @@ export default function Perkembangan() {
             const warnings: string[] = [];
             
             data.forEach((row, index) => {
-              const jumlah = parseNumber(row.JumlahMurojaah || row.jumlahMurojaah || row.Murojaah);
-              const bulan = normalizeString(row.Bulan || row.bulan || row.Month, selectedMonth);
-              const santriId = normalizeString(row.SantriID || row.santriId || row.Santri);
-              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId || row.Halaqah);
+              const santriId = normalizeString(findValue(row, [
+                'SantriID', 'santriId', 'santri_id', 'Santri', 'santri', 'NamaSantri', 'nama_santri'
+              ]));
+              const halaqahId = normalizeString(findValue(row, [
+                'HalaqahID', 'halaqahId', 'halaqah_id', 'Halaqah', 'halaqah', 'NomorHalaqah', 'nomor_halaqah'
+              ]));
+              
+              if (!santriId) {
+                warnings.push(`Baris ${index + 2}: SantriID kosong`);
+              }
+              if (!halaqahId) {
+                warnings.push(`Baris ${index + 2}: HalaqahID kosong`);
+              }
               
               if (!santriId || !halaqahId) {
-                warnings.push(`Baris ${index + 1}: SantriID atau HalaqahID kosong, dilewati`);
                 return;
               }
+              
+              const bulan = normalizeString(findValue(row, [
+                'Bulan', 'bulan', 'Month', 'month', 'Tanggal', 'tanggal'
+              ]), selectedMonth);
+              const jumlah = parseNumber(findValue(row, [
+                'JumlahMurojaah', 'jumlahMurojaah', 'jumlah_murojaah', 'Murojaah', 'murojaah', 'Jumlah', 'jumlah'
+              ]));
               
               validRows.push({
                 Bulan: bulan,
                 SantriID: santriId,
                 HalaqahID: halaqahId,
-                MarhalahID: normalizeMarhalah(row.MarhalahID || row.marhalahId || row.Marhalah),
-                Kelas: normalizeString(row.Kelas || row.kelas || row.Class),
-                MusammiID: normalizeString(row.MusammiID || row.musammiId || row.Musammi),
+                MarhalahID: normalizeMarhalah(findValue(row, [
+                  'MarhalahID', 'marhalahId', 'marhalah_id', 'Marhalah', 'marhalah'
+                ])),
+                Kelas: normalizeString(findValue(row, [
+                  'Kelas', 'kelas', 'Class', 'class'
+                ])),
+                MusammiID: normalizeString(findValue(row, [
+                  'MusammiID', 'musammiId', 'musammi_id', 'Musammi', 'musammi', 'NamaMusammi', 'nama_musammi'
+                ])),
                 JumlahMurojaah: jumlah
               });
             });
             
             if (validRows.length === 0) {
+              const errorMsg = warnings.length > 0 
+                ? `Tidak ada data valid. ${warnings.slice(0, 3).join('; ')}${warnings.length > 3 ? '...' : ''}. Pastikan CSV memiliki kolom: SantriID, HalaqahID, JumlahMurojaah` 
+                : "Tidak ada data yang bisa diimport dari CSV. Pastikan CSV memiliki kolom: SantriID, HalaqahID, JumlahMurojaah";
+              
               toast({ 
-                title: "Tidak Ada Data", 
-                description: "Tidak ada data yang bisa diimport dari CSV", 
-                variant: "destructive" 
+                title: "Tidak Ada Data Valid", 
+                description: errorMsg, 
+                variant: "destructive",
+                duration: 10000
               });
               return;
             }
             
             if (warnings.length > 0) {
-              console.log('CSV Upload Warnings:', warnings);
+              toast({
+                title: `Berhasil Import ${validRows.length} Data`,
+                description: `${warnings.length} baris dilewati karena data tidak lengkap`,
+                duration: 5000
+              });
             }
             
             batchUploadMurojaahMutation.mutate(validRows);
@@ -374,39 +450,71 @@ export default function Perkembangan() {
             const warnings: string[] = [];
             
             data.forEach((row, index) => {
-              const jumlah = parseNumber(row.JumlahPenambahan || row.jumlahPenambahan || row.Penambahan);
-              const bulan = normalizeString(row.Bulan || row.bulan || row.Month, selectedMonth);
-              const santriId = normalizeString(row.SantriID || row.santriId || row.Santri);
-              const halaqahId = normalizeString(row.HalaqahID || row.halaqahId || row.Halaqah);
+              const santriId = normalizeString(findValue(row, [
+                'SantriID', 'santriId', 'santri_id', 'Santri', 'santri', 'NamaSantri', 'nama_santri'
+              ]));
+              const halaqahId = normalizeString(findValue(row, [
+                'HalaqahID', 'halaqahId', 'halaqah_id', 'Halaqah', 'halaqah', 'NomorHalaqah', 'nomor_halaqah'
+              ]));
+              
+              if (!santriId) {
+                warnings.push(`Baris ${index + 2}: SantriID kosong`);
+              }
+              if (!halaqahId) {
+                warnings.push(`Baris ${index + 2}: HalaqahID kosong`);
+              }
               
               if (!santriId || !halaqahId) {
-                warnings.push(`Baris ${index + 1}: SantriID atau HalaqahID kosong, dilewati`);
                 return;
               }
+              
+              const bulan = normalizeString(findValue(row, [
+                'Bulan', 'bulan', 'Month', 'month', 'Tanggal', 'tanggal'
+              ]), selectedMonth);
+              const jumlah = parseNumber(findValue(row, [
+                'JumlahPenambahan', 'jumlahPenambahan', 'jumlah_penambahan', 'Penambahan', 'penambahan', 'Halaman', 'halaman', 'Jumlah', 'jumlah'
+              ]));
               
               validRows.push({
                 Bulan: bulan,
                 SantriID: santriId,
                 HalaqahID: halaqahId,
-                MarhalahID: normalizeMarhalah(row.MarhalahID || row.marhalahId || row.Marhalah),
-                Kelas: normalizeString(row.Kelas || row.kelas || row.Class),
-                MusammiID: normalizeString(row.MusammiID || row.musammiId || row.Musammi),
+                MarhalahID: normalizeMarhalah(findValue(row, [
+                  'MarhalahID', 'marhalahId', 'marhalah_id', 'Marhalah', 'marhalah'
+                ])),
+                Kelas: normalizeString(findValue(row, [
+                  'Kelas', 'kelas', 'Class', 'class'
+                ])),
+                MusammiID: normalizeString(findValue(row, [
+                  'MusammiID', 'musammiId', 'musammi_id', 'Musammi', 'musammi', 'NamaMusammi', 'nama_musammi'
+                ])),
                 JumlahPenambahan: Math.round(jumlah),
-                Catatan: normalizeString(row.Catatan || row.catatan || row.Notes)
+                Catatan: normalizeString(findValue(row, [
+                  'Catatan', 'catatan', 'Notes', 'notes', 'Keterangan', 'keterangan'
+                ]))
               });
             });
             
             if (validRows.length === 0) {
+              const errorMsg = warnings.length > 0 
+                ? `Tidak ada data valid. ${warnings.slice(0, 3).join('; ')}${warnings.length > 3 ? '...' : ''}. Pastikan CSV memiliki kolom: SantriID, HalaqahID, JumlahPenambahan` 
+                : "Tidak ada data yang bisa diimport dari CSV. Pastikan CSV memiliki kolom: SantriID, HalaqahID, JumlahPenambahan";
+              
               toast({ 
-                title: "Tidak Ada Data", 
-                description: "Tidak ada data yang bisa diimport dari CSV", 
-                variant: "destructive" 
+                title: "Tidak Ada Data Valid", 
+                description: errorMsg, 
+                variant: "destructive",
+                duration: 10000
               });
               return;
             }
             
             if (warnings.length > 0) {
-              console.log('CSV Upload Warnings:', warnings);
+              toast({
+                title: `Berhasil Import ${validRows.length} Data`,
+                description: `${warnings.length} baris dilewati karena data tidak lengkap`,
+                duration: 5000
+              });
             }
             
             batchUploadPenambahanMutation.mutate(validRows);
@@ -766,16 +874,25 @@ export default function Perkembangan() {
               }}
               data-testid="input-file-hafalan"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => hafalanFileRef.current?.click()}
-              disabled={batchUploadHafalanMutation.isPending}
-              data-testid="button-upload-hafalan"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {batchUploadHafalanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => hafalanFileRef.current?.click()}
+                  disabled={batchUploadHafalanMutation.isPending}
+                  data-testid="button-upload-hafalan"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {batchUploadHafalanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold mb-1">Format CSV yang diperlukan:</p>
+                <p className="text-xs">Kolom wajib: SantriID, HalaqahID, JumlahHafalan</p>
+                <p className="text-xs">Opsional: Bulan, MarhalahID, Kelas, MusammiID</p>
+              </TooltipContent>
+            </Tooltip>
             <Button
               variant="outline"
               size="sm"
@@ -971,16 +1088,25 @@ export default function Perkembangan() {
               }}
               data-testid="input-file-murojaah"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => murojaahFileRef.current?.click()}
-              disabled={batchUploadMurojaahMutation.isPending}
-              data-testid="button-upload-murojaah"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {batchUploadMurojaahMutation.isPending ? 'Uploading...' : 'Upload CSV'}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => murojaahFileRef.current?.click()}
+                  disabled={batchUploadMurojaahMutation.isPending}
+                  data-testid="button-upload-murojaah"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {batchUploadMurojaahMutation.isPending ? 'Uploading...' : 'Upload CSV'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold mb-1">Format CSV yang diperlukan:</p>
+                <p className="text-xs">Kolom wajib: SantriID, HalaqahID, JumlahMurojaah</p>
+                <p className="text-xs">Opsional: Bulan, MarhalahID, Kelas, MusammiID</p>
+              </TooltipContent>
+            </Tooltip>
             <Button
               variant="outline"
               size="sm"
@@ -1176,16 +1302,25 @@ export default function Perkembangan() {
               }}
               data-testid="input-file-penambahan"
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => penambahanFileRef.current?.click()}
-              disabled={batchUploadPenambahanMutation.isPending}
-              data-testid="button-upload-penambahan"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {batchUploadPenambahanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => penambahanFileRef.current?.click()}
+                  disabled={batchUploadPenambahanMutation.isPending}
+                  data-testid="button-upload-penambahan"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {batchUploadPenambahanMutation.isPending ? 'Uploading...' : 'Upload CSV'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold mb-1">Format CSV yang diperlukan:</p>
+                <p className="text-xs">Kolom wajib: SantriID, HalaqahID, JumlahPenambahan</p>
+                <p className="text-xs">Opsional: Bulan, MarhalahID, Kelas, MusammiID, Catatan</p>
+              </TooltipContent>
+            </Tooltip>
             <Button
               variant="outline"
               size="sm"
