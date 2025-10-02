@@ -65,6 +65,9 @@ export default function Perkembangan() {
   const murojaahFileRef = useRef<HTMLInputElement>(null);
   const penambahanFileRef = useRef<HTMLInputElement>(null);
 
+  // State for halaqah members (for cascading dropdown)
+  const [selectedHalaqahMembers, setSelectedHalaqahMembers] = useState<HalaqahMembers[]>([]);
+
   // Forms for new rows
   const [hafalanForm, setHafalanForm] = useState<InsertHafalanBulanan>({
     Bulan: selectedMonth,
@@ -574,17 +577,17 @@ export default function Perkembangan() {
     });
   };
 
-  const handleSantriChange = (santriId: string, formType: 'hafalan' | 'murojaah' | 'penambahan') => {
-    const santri = allSantri?.find(s => s.SantriID === santriId);
-    if (!santri) return;
-
+  // Handler for Marhalah change - filters Halaqah dropdown
+  const handleMarhalahChange = (marhalahId: string, formType: 'hafalan' | 'murojaah' | 'penambahan') => {
     const updates = {
-      SantriID: santriId,
-      MarhalahID: santri.MarhalahID,
-      Kelas: santri.Kelas,
+      MarhalahID: marhalahId as 'MUT' | 'ALI' | 'JAM',
       HalaqahID: '',
-      MusammiID: ''
+      SantriID: '',
+      MusammiID: '',
+      Kelas: ''
     };
+
+    setSelectedHalaqahMembers([]); // Reset members when marhalah changes
 
     if (formType === 'hafalan') {
       setHafalanForm({ ...hafalanForm, ...updates });
@@ -595,13 +598,49 @@ export default function Perkembangan() {
     }
   };
 
-  const handleHalaqahChange = (halaqahId: string, formType: 'hafalan' | 'murojaah' | 'penambahan') => {
+  // Handler for Halaqah change - fetches members and filters Santri dropdown
+  const handleHalaqahChange = async (halaqahId: string, formType: 'hafalan' | 'murojaah' | 'penambahan') => {
     const halaqah = allHalaqah?.find(h => h.HalaqahID === halaqahId);
     if (!halaqah) return;
 
+    // Fetch halaqah members
+    try {
+      const response = await fetch(`/api/halaqah-members?halaqahId=${halaqahId}`);
+      if (!response.ok) throw new Error('Failed to fetch halaqah members');
+      const members: HalaqahMembers[] = await response.json();
+      setSelectedHalaqahMembers(members);
+
+      const updates = {
+        HalaqahID: halaqahId,
+        MusammiID: halaqah.MusammiID,
+        SantriID: '',
+        Kelas: ''
+      };
+
+      if (formType === 'hafalan') {
+        setHafalanForm({ ...hafalanForm, ...updates });
+      } else if (formType === 'murojaah') {
+        setMurojaahForm({ ...murojaahForm, ...updates });
+      } else {
+        setPenambahanForm({ ...penambahanForm, ...updates });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal mengambil data anggota halaqah",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handler for Santri change - auto-fills Kelas
+  const handleSantriChange = (santriId: string, formType: 'hafalan' | 'murojaah' | 'penambahan') => {
+    const santri = allSantri?.find(s => s.SantriID === santriId);
+    if (!santri) return;
+
     const updates = {
-      HalaqahID: halaqahId,
-      MusammiID: halaqah.MusammiID
+      SantriID: santriId,
+      Kelas: santri.Kelas
     };
 
     if (formType === 'hafalan') {
@@ -944,10 +983,10 @@ export default function Perkembangan() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Bulan</TableHead>
-                        <TableHead>Nama Santri</TableHead>
-                        <TableHead>Kelas</TableHead>
                         <TableHead>Marhalah</TableHead>
                         <TableHead>Halaqah</TableHead>
+                        <TableHead>Nama Santri</TableHead>
+                        <TableHead>Kelas</TableHead>
                         <TableHead>Musammi</TableHead>
                         <TableHead>Hafalan (Juz)</TableHead>
                         {addingHafalan && <TableHead>Actions</TableHead>}
@@ -966,24 +1005,18 @@ export default function Perkembangan() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Select value={hafalanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'hafalan')}>
-                              <SelectTrigger className="w-40" data-testid="select-santri-hafalan">
-                                <SelectValue placeholder="Pilih Santri" />
+                            <Select value={hafalanForm.MarhalahID} onValueChange={(v) => handleMarhalahChange(v, 'hafalan')}>
+                              <SelectTrigger className="w-32" data-testid="select-marhalah-hafalan">
+                                <SelectValue placeholder="Pilih Marhalah" />
                               </SelectTrigger>
                               <SelectContent>
-                                {allSantri?.filter(s => s.Aktif).map((s) => (
-                                  <SelectItem key={s.SantriID} value={s.SantriID}>
-                                    {s.NamaSantri}
+                                {lookups?.marhalah.map((m) => (
+                                  <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
+                                    {m.NamaMarhalah}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {hafalanForm.Kelas || '-'}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {lookups?.marhalah.find(m => m.MarhalahID === hafalanForm.MarhalahID)?.NamaMarhalah || '-'}
                           </TableCell>
                           <TableCell>
                             <Select value={hafalanForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'hafalan')}>
@@ -1001,6 +1034,33 @@ export default function Perkembangan() {
                                 })}
                               </SelectContent>
                             </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select value={hafalanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'hafalan')}>
+                              <SelectTrigger className="w-40" data-testid="select-santri-hafalan">
+                                <SelectValue placeholder="Pilih Santri" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {selectedHalaqahMembers.length > 0 ? (
+                                  selectedHalaqahMembers.map((member) => {
+                                    const santri = allSantri?.find(s => s.SantriID === member.SantriID && s.Aktif);
+                                    if (!santri) return null;
+                                    return (
+                                      <SelectItem key={santri.SantriID} value={santri.SantriID}>
+                                        {santri.NamaSantri}
+                                      </SelectItem>
+                                    );
+                                  }).filter(Boolean)
+                                ) : (
+                                  <SelectItem value="" disabled>
+                                    Pilih Halaqah terlebih dahulu
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {hafalanForm.Kelas || '-'}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {allMusammi?.find(m => m.MusammiID === hafalanForm.MusammiID)?.NamaMusammi || '-'}
@@ -1048,10 +1108,10 @@ export default function Perkembangan() {
                           return (
                             <TableRow key={h.RekapID} data-testid={`row-hafalan-${h.RekapID}`}>
                               <TableCell>{h.Bulan}</TableCell>
-                              <TableCell className="font-medium">{santri?.NamaSantri || 'N/A'}</TableCell>
-                              <TableCell>{h.Kelas}</TableCell>
                               <TableCell>{lookups?.marhalah.find(m => m.MarhalahID === h.MarhalahID)?.NamaMarhalah}</TableCell>
                               <TableCell>{halaqah?.NomorUrutHalaqah || 'N/A'}</TableCell>
+                              <TableCell className="font-medium">{santri?.NamaSantri || 'N/A'}</TableCell>
+                              <TableCell>{h.Kelas}</TableCell>
                               <TableCell>{musammi?.NamaMusammi || 'N/A'}</TableCell>
                               <TableCell className="font-mono">{h.JumlahHafalan.toFixed(1)}</TableCell>
                             </TableRow>
