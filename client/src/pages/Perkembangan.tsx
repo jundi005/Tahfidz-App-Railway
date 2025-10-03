@@ -1047,7 +1047,11 @@ export default function Perkembangan() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Select value={row.MarhalahID} onValueChange={(v) => handleMarhalahChange(row.id, v, 'hafalan')}>
+                            <Select 
+                              key={`marhalah-${row.id}`}
+                              value={row.MarhalahID} 
+                              onValueChange={(v) => handleMarhalahChange(row.id, v, 'hafalan')}
+                            >
                               <SelectTrigger className="w-32" data-testid={`select-marhalah-hafalan-${row.id}`}>
                                 <SelectValue placeholder="Pilih Marhalah" />
                               </SelectTrigger>
@@ -1063,7 +1067,7 @@ export default function Perkembangan() {
                           <TableCell>
                             <Select 
                               key={`halaqah-${row.id}-${row.MarhalahID}`}
-                              value={row.HalaqahID || undefined} 
+                              value={row.HalaqahID ? row.HalaqahID : undefined} 
                               onValueChange={(v) => handleHalaqahChange(row.id, v, 'hafalan')}
                               disabled={!row.MarhalahID}
                             >
@@ -1071,21 +1075,25 @@ export default function Perkembangan() {
                                 <SelectValue placeholder="Pilih Halaqah" />
                               </SelectTrigger>
                               <SelectContent>
-                                {allHalaqah?.filter(h => h.MarhalahID === row.MarhalahID).map((h) => {
-                                  const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                                  return (
-                                    <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
-                                      {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
-                                    </SelectItem>
-                                  );
-                                })}
+                                {allHalaqah?.filter(h => h.MarhalahID === row.MarhalahID).length ? (
+                                  allHalaqah.filter(h => h.MarhalahID === row.MarhalahID).map((h) => {
+                                    const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
+                                    return (
+                                      <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
+                                        {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
+                                      </SelectItem>
+                                    );
+                                  })
+                                ) : (
+                                  <SelectItem value="__no_halaqah__" disabled>Tidak ada halaqah</SelectItem>
+                                )}
                               </SelectContent>
                             </Select>
                           </TableCell>
                           <TableCell>
                             <Select 
                               key={`santri-${row.id}-${row.HalaqahID}`}
-                              value={row.SantriID || undefined} 
+                              value={row.SantriID ? row.SantriID : undefined} 
                               onValueChange={(v) => handleSantriChange(row.id, v, 'hafalan')}
                               disabled={!row.HalaqahID || row.halaqahMembers.length === 0}
                             >
@@ -1104,7 +1112,7 @@ export default function Perkembangan() {
                                     );
                                   }).filter(Boolean)
                                 ) : (
-                                  <SelectItem value="placeholder-no-halaqah" disabled>
+                                  <SelectItem value="__no_santri__" disabled>
                                     Pilih Halaqah terlebih dahulu
                                   </SelectItem>
                                 )}
@@ -1318,7 +1326,11 @@ export default function Perkembangan() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Select value={row.MarhalahID} onValueChange={(v) => handleMarhalahChange(row.id, v, 'murojaah')}>
+                            <Select 
+                              key={`marhalah-${row.id}`}
+                              value={row.MarhalahID} 
+                              onValueChange={(v) => handleMarhalahChange(row.id, v, 'murojaah')}
+                            >
                               <SelectTrigger className="w-32" data-testid={`select-marhalah-murojaah-${row.id}`}>
                                 <SelectValue placeholder="Pilih Marhalah" />
                               </SelectTrigger>
@@ -1334,7 +1346,7 @@ export default function Perkembangan() {
                           <TableCell>
                             <Select 
                               key={`halaqah-${row.id}-${row.MarhalahID}`}
-                              value={row.HalaqahID || undefined} 
+                              value={row.HalaqahID ? row.HalaqahID : undefined} 
                               onValueChange={(v) => handleHalaqahChange(row.id, v, 'murojaah')}
                               disabled={!row.MarhalahID}
                             >
@@ -1342,21 +1354,25 @@ export default function Perkembangan() {
                                 <SelectValue placeholder="Pilih Halaqah" />
                               </SelectTrigger>
                               <SelectContent>
-                                {allHalaqah?.filter(h => h.MarhalahID === row.MarhalahID).map((h) => {
-                                  const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                                  return (
-                                    <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
-                                      {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
-                                    </SelectItem>
-                                  );
-                                })}
+                                {allHalaqah?.filter(h => h.MarhalahID === row.MarhalahID).length ? (
+                                  allHalaqah.filter(h => h.MarhalahID === row.MarhalahID).map((h) => {
+                                    const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
+                                    return (
+                                      <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
+                                        {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
+                                      </SelectItem>
+                                    );
+                                  })
+                                ) : (
+                                  <SelectItem value="__no_halaqah__" disabled>Tidak ada halaqah</SelectItem>
+                                )}
                               </SelectContent>
                             </Select>
                           </TableCell>
                           <TableCell>
                             <Select 
                               key={`santri-${row.id}-${row.HalaqahID}`}
-                              value={row.SantriID || undefined} 
+                              value={row.SantriID ? row.SantriID : undefined} 
                               onValueChange={(v) => handleSantriChange(row.id, v, 'murojaah')}
                               disabled={!row.HalaqahID || row.halaqahMembers.length === 0}
                             >
@@ -1375,7 +1391,7 @@ export default function Perkembangan() {
                                     );
                                   }).filter(Boolean)
                                 ) : (
-                                  <SelectItem value="placeholder-no-halaqah" disabled>
+                                  <SelectItem value="__no_santri__" disabled>
                                     Pilih Halaqah terlebih dahulu
                                   </SelectItem>
                                 )}
@@ -1595,7 +1611,11 @@ export default function Perkembangan() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Select value={row.MarhalahID} onValueChange={(v) => handleMarhalahChange(row.id, v, 'penambahan')}>
+                            <Select 
+                              key={`marhalah-${row.id}`}
+                              value={row.MarhalahID} 
+                              onValueChange={(v) => handleMarhalahChange(row.id, v, 'penambahan')}
+                            >
                               <SelectTrigger className="w-32" data-testid={`select-marhalah-penambahan-${row.id}`}>
                                 <SelectValue placeholder="Pilih Marhalah" />
                               </SelectTrigger>
@@ -1611,7 +1631,7 @@ export default function Perkembangan() {
                           <TableCell>
                             <Select 
                               key={`halaqah-${row.id}-${row.MarhalahID}`}
-                              value={row.HalaqahID || undefined} 
+                              value={row.HalaqahID ? row.HalaqahID : undefined} 
                               onValueChange={(v) => handleHalaqahChange(row.id, v, 'penambahan')}
                               disabled={!row.MarhalahID}
                             >
@@ -1619,21 +1639,25 @@ export default function Perkembangan() {
                                 <SelectValue placeholder="Pilih Halaqah" />
                               </SelectTrigger>
                               <SelectContent>
-                                {allHalaqah?.filter(h => h.MarhalahID === row.MarhalahID).map((h) => {
-                                  const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
-                                  return (
-                                    <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
-                                      {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
-                                    </SelectItem>
-                                  );
-                                })}
+                                {allHalaqah?.filter(h => h.MarhalahID === row.MarhalahID).length ? (
+                                  allHalaqah.filter(h => h.MarhalahID === row.MarhalahID).map((h) => {
+                                    const musammi = allMusammi?.find(m => m.MusammiID === h.MusammiID);
+                                    return (
+                                      <SelectItem key={h.HalaqahID} value={h.HalaqahID}>
+                                        {h.NomorUrutHalaqah} - {musammi?.NamaMusammi}
+                                      </SelectItem>
+                                    );
+                                  })
+                                ) : (
+                                  <SelectItem value="__no_halaqah__" disabled>Tidak ada halaqah</SelectItem>
+                                )}
                               </SelectContent>
                             </Select>
                           </TableCell>
                           <TableCell>
                             <Select 
                               key={`santri-${row.id}-${row.HalaqahID}`}
-                              value={row.SantriID || undefined} 
+                              value={row.SantriID ? row.SantriID : undefined} 
                               onValueChange={(v) => handleSantriChange(row.id, v, 'penambahan')}
                               disabled={!row.HalaqahID || row.halaqahMembers.length === 0}
                             >
@@ -1652,7 +1676,7 @@ export default function Perkembangan() {
                                     );
                                   }).filter(Boolean)
                                 ) : (
-                                  <SelectItem value="placeholder-no-halaqah" disabled>
+                                  <SelectItem value="__no_santri__" disabled>
                                     Pilih Halaqah terlebih dahulu
                                   </SelectItem>
                                 )}
