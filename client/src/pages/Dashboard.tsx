@@ -98,7 +98,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="text-center">
         <h1 className="text-3xl font-bold" data-testid="text-welcome">Welcome to TAHFIDZ Software</h1>
         <p className="text-muted-foreground mt-2">
           Sistem manajemen halaqah Al-Qur'an untuk monitoring hafalan, absensi, dan perkembangan santri

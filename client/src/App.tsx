@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import Clock from "@/components/Clock";
 import Dashboard from "@/pages/Dashboard";
 import DataHalaqah from "@/pages/DataHalaqah";
 import Perkembangan from "@/pages/Perkembangan";
@@ -41,13 +42,21 @@ function App() {
             <div className="flex h-screen w-full">
               <AppSidebar />
               <div className="flex flex-col flex-1">
-                <header className="flex items-center justify-between p-4 border-b">
+                <header className="flex items-center justify-between gap-4 p-4 border-b">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
-                  <ThemeToggle />
+                  <div className="flex items-center gap-4">
+                    <Clock />
+                    <ThemeToggle />
+                  </div>
                 </header>
                 <main className="flex-1 overflow-auto p-6">
                   <Router />
                 </main>
+                <footer className="border-t p-4">
+                  <p className="text-center text-sm text-muted-foreground" data-testid="text-copyright">
+                    copyright by @lajnah Alquran, All right reserved
+                  </p>
+                </footer>
               </div>
             </div>
           </SidebarProvider>

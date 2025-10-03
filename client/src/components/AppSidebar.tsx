@@ -1,15 +1,16 @@
-import { Home, Users, ClipboardCheck, BookOpen, Calendar, FileText } from "lucide-react";
+import { Home, Users, BookOpen, Calendar, FileText } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarHeader,
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
+import logoImage from "@assets/6267064765221899735_1759497735933.jpg";
 
 const menuItems = [
   {
@@ -44,11 +45,21 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
+      <SidebarHeader className="p-4 border-b">
+        <div className="flex flex-col items-center gap-3">
+          <img 
+            src={logoImage} 
+            alt="Lajnah Al-Qur'an Logo" 
+            className="w-20 h-20 object-contain"
+            data-testid="img-logo"
+          />
+          <h2 className="text-lg font-bold text-center" data-testid="text-brand-name">
+            Lajnah Al-Qur'an
+          </h2>
+        </div>
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-lg font-bold text-primary">
-            TAHFIDZ
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
