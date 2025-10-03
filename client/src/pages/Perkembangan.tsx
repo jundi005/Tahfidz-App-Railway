@@ -1062,7 +1062,8 @@ export default function Perkembangan() {
                           </TableCell>
                           <TableCell>
                             <Select 
-                              value={row.HalaqahID} 
+                              key={`halaqah-${row.id}-${row.MarhalahID}`}
+                              value={row.HalaqahID || undefined} 
                               onValueChange={(v) => handleHalaqahChange(row.id, v, 'hafalan')}
                               disabled={!row.MarhalahID}
                             >
@@ -1083,7 +1084,8 @@ export default function Perkembangan() {
                           </TableCell>
                           <TableCell>
                             <Select 
-                              value={row.SantriID} 
+                              key={`santri-${row.id}-${row.HalaqahID}`}
+                              value={row.SantriID || undefined} 
                               onValueChange={(v) => handleSantriChange(row.id, v, 'hafalan')}
                               disabled={!row.HalaqahID || row.halaqahMembers.length === 0}
                             >
@@ -1331,7 +1333,8 @@ export default function Perkembangan() {
                           </TableCell>
                           <TableCell>
                             <Select 
-                              value={row.HalaqahID} 
+                              key={`halaqah-${row.id}-${row.MarhalahID}`}
+                              value={row.HalaqahID || undefined} 
                               onValueChange={(v) => handleHalaqahChange(row.id, v, 'murojaah')}
                               disabled={!row.MarhalahID}
                             >
@@ -1352,7 +1355,8 @@ export default function Perkembangan() {
                           </TableCell>
                           <TableCell>
                             <Select 
-                              value={row.SantriID} 
+                              key={`santri-${row.id}-${row.HalaqahID}`}
+                              value={row.SantriID || undefined} 
                               onValueChange={(v) => handleSantriChange(row.id, v, 'murojaah')}
                               disabled={!row.HalaqahID || row.halaqahMembers.length === 0}
                             >
@@ -1606,7 +1610,8 @@ export default function Perkembangan() {
                           </TableCell>
                           <TableCell>
                             <Select 
-                              value={row.HalaqahID} 
+                              key={`halaqah-${row.id}-${row.MarhalahID}`}
+                              value={row.HalaqahID || undefined} 
                               onValueChange={(v) => handleHalaqahChange(row.id, v, 'penambahan')}
                               disabled={!row.MarhalahID}
                             >
@@ -1627,7 +1632,8 @@ export default function Perkembangan() {
                           </TableCell>
                           <TableCell>
                             <Select 
-                              value={row.SantriID} 
+                              key={`santri-${row.id}-${row.HalaqahID}`}
+                              value={row.SantriID || undefined} 
                               onValueChange={(v) => handleSantriChange(row.id, v, 'penambahan')}
                               disabled={!row.HalaqahID || row.halaqahMembers.length === 0}
                             >
