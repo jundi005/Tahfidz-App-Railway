@@ -144,7 +144,7 @@ export class GoogleSheetsStorage implements IStorage {
     const url =
       baseUrl ||
       process.env.GOOGLE_APPS_SCRIPT_URL ||
-      "https://script.google.com/macros/s/AKfycbx2EywksIlufYivndbJgvea_bhW6_ZfuPz7zxy-6C8h4m--lDVi5UgpP5kvv7S2Nlym0Q/exec";
+      "https://script.google.com/macros/s/AKfycbyLp_0XuL5OVQOzwuqzg5vrdijdhnb9Gsf8g08uhbPUupmKCydvQrdpgMRAa0bv6qtYHg/exec";
 
     if (!url || url.trim() === "") {
       throw new Error(
