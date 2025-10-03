@@ -1423,6 +1423,15 @@ function doPost(e) {
     else if (path === 'absensi/batch') {
       return jsonResponse(batchCreateAbsensi(body));
     }
+    else if (path === 'hafalan/batch') {
+      return jsonResponse(batchCreateHafalanBulanan(body.data));
+    }
+    else if (path === 'murojaah/batch') {
+      return jsonResponse(batchCreateMurojaahBulanan(body.data));
+    }
+    else if (path === 'penambahan/batch') {
+      return jsonResponse(batchCreatePenambahanHafalan(body.data));
+    }
     else if (path === 'hafalan') {
       return jsonResponse(createHafalanBulanan(body));
     }
