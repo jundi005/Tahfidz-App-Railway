@@ -550,6 +550,7 @@ export default function Perkembangan() {
       MusammiID: '',
       JumlahHafalan: 0
     });
+    setSelectedHalaqahMembers([]);
   };
 
   const resetMurojaahForm = () => {
@@ -562,6 +563,7 @@ export default function Perkembangan() {
       MusammiID: '',
       JumlahMurojaah: 0
     });
+    setSelectedHalaqahMembers([]);
   };
 
   const resetPenambahanForm = () => {
@@ -575,6 +577,7 @@ export default function Perkembangan() {
       JumlahPenambahan: 0,
       Catatan: ''
     });
+    setSelectedHalaqahMembers([]);
   };
 
   // Handler for Marhalah change - filters Halaqah dropdown
@@ -1019,7 +1022,11 @@ export default function Perkembangan() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select value={hafalanForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'hafalan')}>
+                            <Select 
+                              value={hafalanForm.HalaqahID} 
+                              onValueChange={(v) => handleHalaqahChange(v, 'hafalan')}
+                              disabled={!hafalanForm.MarhalahID}
+                            >
                               <SelectTrigger className="w-32" data-testid="select-halaqah-hafalan">
                                 <SelectValue placeholder="Pilih Halaqah" />
                               </SelectTrigger>
@@ -1036,7 +1043,11 @@ export default function Perkembangan() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select value={hafalanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'hafalan')}>
+                            <Select 
+                              value={hafalanForm.SantriID} 
+                              onValueChange={(v) => handleSantriChange(v, 'hafalan')}
+                              disabled={!hafalanForm.HalaqahID || selectedHalaqahMembers.length === 0}
+                            >
                               <SelectTrigger className="w-40" data-testid="select-santri-hafalan">
                                 <SelectValue placeholder="Pilih Santri" />
                               </SelectTrigger>
@@ -1052,7 +1063,7 @@ export default function Perkembangan() {
                                     );
                                   }).filter(Boolean)
                                 ) : (
-                                  <SelectItem value="" disabled>
+                                  <SelectItem value="placeholder-no-halaqah" disabled>
                                     Pilih Halaqah terlebih dahulu
                                   </SelectItem>
                                 )}
@@ -1069,6 +1080,7 @@ export default function Perkembangan() {
                             <Input
                               type="number"
                               step="0.1"
+                              min="0"
                               value={hafalanForm.JumlahHafalan}
                               onChange={(e) => setHafalanForm({ ...hafalanForm, JumlahHafalan: parseFloat(e.target.value) || 0 })}
                               className="w-20"
@@ -1080,7 +1092,13 @@ export default function Perkembangan() {
                               <Button
                                 size="sm"
                                 onClick={() => createHafalanMutation.mutate(hafalanForm)}
-                                disabled={createHafalanMutation.isPending || !hafalanForm.SantriID || !hafalanForm.HalaqahID}
+                                disabled={
+                                  createHafalanMutation.isPending || 
+                                  !hafalanForm.SantriID || 
+                                  !hafalanForm.HalaqahID || 
+                                  !hafalanForm.MarhalahID ||
+                                  hafalanForm.JumlahHafalan <= 0
+                                }
                                 data-testid="button-save-hafalan"
                               >
                                 {createHafalanMutation.isPending ? 'Saving...' : 'Save'}
@@ -1254,7 +1272,11 @@ export default function Perkembangan() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select value={murojaahForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'murojaah')}>
+                            <Select 
+                              value={murojaahForm.HalaqahID} 
+                              onValueChange={(v) => handleHalaqahChange(v, 'murojaah')}
+                              disabled={!murojaahForm.MarhalahID}
+                            >
                               <SelectTrigger className="w-32" data-testid="select-halaqah-murojaah">
                                 <SelectValue placeholder="Pilih Halaqah" />
                               </SelectTrigger>
@@ -1271,7 +1293,11 @@ export default function Perkembangan() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select value={murojaahForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'murojaah')}>
+                            <Select 
+                              value={murojaahForm.SantriID} 
+                              onValueChange={(v) => handleSantriChange(v, 'murojaah')}
+                              disabled={!murojaahForm.HalaqahID || selectedHalaqahMembers.length === 0}
+                            >
                               <SelectTrigger className="w-40" data-testid="select-santri-murojaah">
                                 <SelectValue placeholder="Pilih Santri" />
                               </SelectTrigger>
@@ -1287,7 +1313,7 @@ export default function Perkembangan() {
                                     );
                                   }).filter(Boolean)
                                 ) : (
-                                  <SelectItem value="" disabled>
+                                  <SelectItem value="placeholder-no-halaqah" disabled>
                                     Pilih Halaqah terlebih dahulu
                                   </SelectItem>
                                 )}
@@ -1304,6 +1330,7 @@ export default function Perkembangan() {
                             <Input
                               type="number"
                               step="0.1"
+                              min="0"
                               value={murojaahForm.JumlahMurojaah}
                               onChange={(e) => setMurojaahForm({ ...murojaahForm, JumlahMurojaah: parseFloat(e.target.value) || 0 })}
                               className="w-20"
@@ -1315,7 +1342,13 @@ export default function Perkembangan() {
                               <Button
                                 size="sm"
                                 onClick={() => createMurojaahMutation.mutate(murojaahForm)}
-                                disabled={createMurojaahMutation.isPending || !murojaahForm.SantriID || !murojaahForm.HalaqahID}
+                                disabled={
+                                  createMurojaahMutation.isPending || 
+                                  !murojaahForm.SantriID || 
+                                  !murojaahForm.HalaqahID || 
+                                  !murojaahForm.MarhalahID ||
+                                  murojaahForm.JumlahMurojaah <= 0
+                                }
                                 data-testid="button-save-murojaah"
                               >
                                 {createMurojaahMutation.isPending ? 'Saving...' : 'Save'}
@@ -1495,7 +1528,11 @@ export default function Perkembangan() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select value={penambahanForm.HalaqahID} onValueChange={(v) => handleHalaqahChange(v, 'penambahan')}>
+                            <Select 
+                              value={penambahanForm.HalaqahID} 
+                              onValueChange={(v) => handleHalaqahChange(v, 'penambahan')}
+                              disabled={!penambahanForm.MarhalahID}
+                            >
                               <SelectTrigger className="w-32" data-testid="select-halaqah-penambahan">
                                 <SelectValue placeholder="Pilih Halaqah" />
                               </SelectTrigger>
@@ -1512,7 +1549,11 @@ export default function Perkembangan() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select value={penambahanForm.SantriID} onValueChange={(v) => handleSantriChange(v, 'penambahan')}>
+                            <Select 
+                              value={penambahanForm.SantriID} 
+                              onValueChange={(v) => handleSantriChange(v, 'penambahan')}
+                              disabled={!penambahanForm.HalaqahID || selectedHalaqahMembers.length === 0}
+                            >
                               <SelectTrigger className="w-40" data-testid="select-santri-penambahan">
                                 <SelectValue placeholder="Pilih Santri" />
                               </SelectTrigger>
@@ -1528,7 +1569,7 @@ export default function Perkembangan() {
                                     );
                                   }).filter(Boolean)
                                 ) : (
-                                  <SelectItem value="" disabled>
+                                  <SelectItem value="placeholder-no-halaqah" disabled>
                                     Pilih Halaqah terlebih dahulu
                                   </SelectItem>
                                 )}
@@ -1545,6 +1586,7 @@ export default function Perkembangan() {
                             <Input
                               type="number"
                               step="1"
+                              min="0"
                               value={penambahanForm.JumlahPenambahan}
                               onChange={(e) => setPenambahanForm({ ...penambahanForm, JumlahPenambahan: parseInt(e.target.value) || 0 })}
                               className="w-20"
@@ -1552,7 +1594,7 @@ export default function Perkembangan() {
                             />
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {(penambahanForm.JumlahPenambahan / 20).toFixed(2)}
+                            {(penambahanForm.JumlahPenambahan / 20).toFixed(2)} Juz
                           </TableCell>
                           <TableCell>
                             <Input
@@ -1569,7 +1611,13 @@ export default function Perkembangan() {
                               <Button
                                 size="sm"
                                 onClick={() => createPenambahanMutation.mutate(penambahanForm)}
-                                disabled={createPenambahanMutation.isPending || !penambahanForm.SantriID || !penambahanForm.HalaqahID}
+                                disabled={
+                                  createPenambahanMutation.isPending || 
+                                  !penambahanForm.SantriID || 
+                                  !penambahanForm.HalaqahID || 
+                                  !penambahanForm.MarhalahID ||
+                                  penambahanForm.JumlahPenambahan <= 0
+                                }
                                 data-testid="button-save-penambahan"
                               >
                                 {createPenambahanMutation.isPending ? 'Saving...' : 'Save'}
