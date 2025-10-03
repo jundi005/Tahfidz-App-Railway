@@ -198,7 +198,11 @@ export class GoogleSheetsStorage implements IStorage {
         "tasks",
       ];
 
-      if (resourcesWithIds.includes(firstSegment)) {
+      // Check if this is a batch endpoint
+      if (secondSegment === "batch") {
+        // This is a batch endpoint like 'hafalan/batch', 'murojaah/batch', 'penambahan/batch'
+        url.searchParams.set("path", cleanPath);
+      } else if (resourcesWithIds.includes(firstSegment)) {
         // This is a resource with an ID
         url.searchParams.set("path", firstSegment);
         url.searchParams.set("id", secondSegment);
