@@ -166,21 +166,21 @@ export default function Perkembangan() {
     setPenambahanRows(penambahanRows.filter(row => row.id !== id));
   };
 
-  const updateHafalanRow = (id: string, field: keyof Omit<HafalanRow, 'id'>, value: any) => {
-    setHafalanRows(hafalanRows.map(row => 
-      row.id === id ? { ...row, [field]: value } : row
+  const updateHafalanRow = (id: string, updates: Partial<Omit<HafalanRow, 'id'>>) => {
+    setHafalanRows(prev => prev.map(row => 
+      row.id === id ? { ...row, ...updates } : row
     ));
   };
 
-  const updateMurojaahRow = (id: string, field: keyof Omit<MurojaahRow, 'id'>, value: any) => {
-    setMurojaahRows(murojaahRows.map(row => 
-      row.id === id ? { ...row, [field]: value } : row
+  const updateMurojaahRow = (id: string, updates: Partial<Omit<MurojaahRow, 'id'>>) => {
+    setMurojaahRows(prev => prev.map(row => 
+      row.id === id ? { ...row, ...updates } : row
     ));
   };
 
-  const updatePenambahanRow = (id: string, field: keyof Omit<PenambahanRow, 'id'>, value: any) => {
-    setPenambahanRows(penambahanRows.map(row => 
-      row.id === id ? { ...row, [field]: value } : row
+  const updatePenambahanRow = (id: string, updates: Partial<Omit<PenambahanRow, 'id'>>) => {
+    setPenambahanRows(prev => prev.map(row => 
+      row.id === id ? { ...row, ...updates } : row
     ));
   };
 
@@ -560,27 +560,21 @@ export default function Perkembangan() {
 
   // Handler for Marhalah change - filters Halaqah dropdown
   const handleMarhalahChange = async (rowId: string, marhalahId: string, formType: 'hafalan' | 'murojaah' | 'penambahan') => {
+    const updates = {
+      MarhalahID: marhalahId as 'MUT' | 'ALI' | 'JAM',
+      HalaqahID: '',
+      SantriID: '',
+      MusammiID: '',
+      Kelas: '',
+      halaqahMembers: []
+    };
+    
     if (formType === 'hafalan') {
-      updateHafalanRow(rowId, 'MarhalahID', marhalahId as 'MUT' | 'ALI' | 'JAM');
-      updateHafalanRow(rowId, 'HalaqahID', '');
-      updateHafalanRow(rowId, 'SantriID', '');
-      updateHafalanRow(rowId, 'MusammiID', '');
-      updateHafalanRow(rowId, 'Kelas', '');
-      updateHafalanRow(rowId, 'halaqahMembers', []);
+      updateHafalanRow(rowId, updates);
     } else if (formType === 'murojaah') {
-      updateMurojaahRow(rowId, 'MarhalahID', marhalahId as 'MUT' | 'ALI' | 'JAM');
-      updateMurojaahRow(rowId, 'HalaqahID', '');
-      updateMurojaahRow(rowId, 'SantriID', '');
-      updateMurojaahRow(rowId, 'MusammiID', '');
-      updateMurojaahRow(rowId, 'Kelas', '');
-      updateMurojaahRow(rowId, 'halaqahMembers', []);
+      updateMurojaahRow(rowId, updates);
     } else {
-      updatePenambahanRow(rowId, 'MarhalahID', marhalahId as 'MUT' | 'ALI' | 'JAM');
-      updatePenambahanRow(rowId, 'HalaqahID', '');
-      updatePenambahanRow(rowId, 'SantriID', '');
-      updatePenambahanRow(rowId, 'MusammiID', '');
-      updatePenambahanRow(rowId, 'Kelas', '');
-      updatePenambahanRow(rowId, 'halaqahMembers', []);
+      updatePenambahanRow(rowId, updates);
     }
   };
 
@@ -594,24 +588,20 @@ export default function Perkembangan() {
       if (!response.ok) throw new Error('Failed to fetch halaqah members');
       const members: HalaqahMembers[] = await response.json();
 
+      const updates = {
+        HalaqahID: halaqahId,
+        MusammiID: halaqah.MusammiID,
+        SantriID: '',
+        Kelas: '',
+        halaqahMembers: members
+      };
+
       if (formType === 'hafalan') {
-        updateHafalanRow(rowId, 'HalaqahID', halaqahId);
-        updateHafalanRow(rowId, 'MusammiID', halaqah.MusammiID);
-        updateHafalanRow(rowId, 'SantriID', '');
-        updateHafalanRow(rowId, 'Kelas', '');
-        updateHafalanRow(rowId, 'halaqahMembers', members);
+        updateHafalanRow(rowId, updates);
       } else if (formType === 'murojaah') {
-        updateMurojaahRow(rowId, 'HalaqahID', halaqahId);
-        updateMurojaahRow(rowId, 'MusammiID', halaqah.MusammiID);
-        updateMurojaahRow(rowId, 'SantriID', '');
-        updateMurojaahRow(rowId, 'Kelas', '');
-        updateMurojaahRow(rowId, 'halaqahMembers', members);
+        updateMurojaahRow(rowId, updates);
       } else {
-        updatePenambahanRow(rowId, 'HalaqahID', halaqahId);
-        updatePenambahanRow(rowId, 'MusammiID', halaqah.MusammiID);
-        updatePenambahanRow(rowId, 'SantriID', '');
-        updatePenambahanRow(rowId, 'Kelas', '');
-        updatePenambahanRow(rowId, 'halaqahMembers', members);
+        updatePenambahanRow(rowId, updates);
       }
     } catch (error) {
       toast({
@@ -627,15 +617,17 @@ export default function Perkembangan() {
     const santri = allSantri?.find(s => s.SantriID === santriId);
     if (!santri) return;
 
+    const updates = {
+      SantriID: santriId,
+      Kelas: santri.Kelas
+    };
+
     if (formType === 'hafalan') {
-      updateHafalanRow(rowId, 'SantriID', santriId);
-      updateHafalanRow(rowId, 'Kelas', santri.Kelas);
+      updateHafalanRow(rowId, updates);
     } else if (formType === 'murojaah') {
-      updateMurojaahRow(rowId, 'SantriID', santriId);
-      updateMurojaahRow(rowId, 'Kelas', santri.Kelas);
+      updateMurojaahRow(rowId, updates);
     } else {
-      updatePenambahanRow(rowId, 'SantriID', santriId);
-      updatePenambahanRow(rowId, 'Kelas', santri.Kelas);
+      updatePenambahanRow(rowId, updates);
     }
   };
 
@@ -1041,7 +1033,7 @@ export default function Perkembangan() {
                             <Input
                               type="month"
                               value={row.Bulan}
-                              onChange={(e) => updateHafalanRow(row.id, 'Bulan', e.target.value)}
+                              onChange={(e) => updateHafalanRow(row.id, { Bulan: e.target.value })}
                               className="w-32"
                               data-testid={`input-bulan-hafalan-${row.id}`}
                             />
@@ -1131,7 +1123,7 @@ export default function Perkembangan() {
                               step="0.1"
                               min="0"
                               value={row.JumlahHafalan}
-                              onChange={(e) => updateHafalanRow(row.id, 'JumlahHafalan', parseFloat(e.target.value) || 0)}
+                              onChange={(e) => updateHafalanRow(row.id, { JumlahHafalan: parseFloat(e.target.value) || 0 })}
                               className="w-20"
                               data-testid={`input-jumlah-hafalan-${row.id}`}
                             />
@@ -1320,7 +1312,7 @@ export default function Perkembangan() {
                             <Input
                               type="month"
                               value={row.Bulan}
-                              onChange={(e) => updateMurojaahRow(row.id, 'Bulan', e.target.value)}
+                              onChange={(e) => updateMurojaahRow(row.id, { Bulan: e.target.value })}
                               className="w-32"
                               data-testid={`input-bulan-murojaah-${row.id}`}
                             />
@@ -1410,7 +1402,7 @@ export default function Perkembangan() {
                               step="0.1"
                               min="0"
                               value={row.JumlahMurojaah}
-                              onChange={(e) => updateMurojaahRow(row.id, 'JumlahMurojaah', parseFloat(e.target.value) || 0)}
+                              onChange={(e) => updateMurojaahRow(row.id, { JumlahMurojaah: parseFloat(e.target.value) || 0 })}
                               className="w-20"
                               data-testid={`input-jumlah-murojaah-${row.id}`}
                             />
@@ -1605,7 +1597,7 @@ export default function Perkembangan() {
                             <Input
                               type="month"
                               value={row.Bulan}
-                              onChange={(e) => updatePenambahanRow(row.id, 'Bulan', e.target.value)}
+                              onChange={(e) => updatePenambahanRow(row.id, { Bulan: e.target.value })}
                               className="w-32"
                               data-testid={`input-bulan-penambahan-${row.id}`}
                             />
@@ -1695,7 +1687,7 @@ export default function Perkembangan() {
                               step="1"
                               min="0"
                               value={row.JumlahPenambahan}
-                              onChange={(e) => updatePenambahanRow(row.id, 'JumlahPenambahan', parseInt(e.target.value) || 0)}
+                              onChange={(e) => updatePenambahanRow(row.id, { JumlahPenambahan: parseInt(e.target.value) || 0 })}
                               className="w-20"
                               data-testid={`input-jumlah-penambahan-${row.id}`}
                             />
@@ -1707,7 +1699,7 @@ export default function Perkembangan() {
                             <Input
                               type="text"
                               value={row.Catatan || ''}
-                              onChange={(e) => updatePenambahanRow(row.id, 'Catatan', e.target.value)}
+                              onChange={(e) => updatePenambahanRow(row.id, { Catatan: e.target.value })}
                               className="w-32"
                               placeholder="Optional"
                               data-testid={`input-catatan-penambahan-${row.id}`}
