@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { useState, useEffect } from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,11 +9,14 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import Clock from "@/components/Clock";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 import Dashboard from "@/pages/Dashboard";
 import DataHalaqah from "@/pages/DataHalaqah";
 import Perkembangan from "@/pages/Perkembangan";
 import Kalender from "@/pages/Kalender";
 import Laporan from "@/pages/Laporan";
+import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,6 +33,33 @@ function Router() {
 }
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    const authStatus = localStorage.getItem("isAuthenticated") === "true";
+    setIsAuthenticated(authStatus);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("isAuthenticated");
+    setIsAuthenticated(false);
+    setLocation("/login");
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Login />
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+  }
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -47,6 +78,15 @@ function App() {
                   <div className="flex items-center gap-4">
                     <Clock />
                     <ThemeToggle />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleLogout}
+                      data-testid="button-logout"
+                      title="Logout"
+                    >
+                      <LogOut className="h-5 w-5" />
+                    </Button>
                   </div>
                 </header>
                 <main className="flex-1 overflow-auto p-6">
