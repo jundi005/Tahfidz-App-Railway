@@ -1342,7 +1342,18 @@ function getDashboardStats() {
   // Get today's date in format YYYY-MM-DD
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const absensiData = absensiSantriSheet.getDataRange().getValues().slice(1);
-  const todayAbsensi = absensiData.filter(a => a[1] === today);
+  
+  // Convert date objects to string format for comparison
+  const absensiDataFormatted = absensiData.map(row => {
+    const rowCopy = [...row];
+    // Convert date in column 1 (index 1) to YYYY-MM-DD string
+    if (rowCopy[1] instanceof Date) {
+      rowCopy[1] = Utilities.formatDate(rowCopy[1], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+    return rowCopy;
+  });
+  
+  const todayAbsensi = absensiDataFormatted.filter(a => a[1] === today);
   
   const absensiHariIni = {
     hadir: todayAbsensi.filter(a => a[6] === 'HADIR').length,
@@ -1356,28 +1367,11 @@ function getDashboardStats() {
   const absensi7Hari = [];
   const todayDate = new Date();
   
-  // Debug: Log total absensi records and sample dates
-  Logger.log('Total absensi records: ' + absensiData.length);
-  if (absensiData.length > 0) {
-    Logger.log('Sample dates in AbsensiSantri: ' + absensiData.slice(0, 3).map(a => a[1]).join(', '));
-  }
-  
   for (let i = 6; i >= 0; i--) {
     const date = new Date(todayDate);
     date.setDate(todayDate.getDate() - i);
     const dateStr = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-    const dayAbsensi = absensiData.filter(a => a[1] === dateStr);
-    
-    // Debug: Log each day's calculation
-    Logger.log('Day ' + dateStr + ': Found ' + dayAbsensi.length + ' records');
-    if (dayAbsensi.length > 0) {
-      const statusCounts = {};
-      dayAbsensi.forEach(a => {
-        const status = a[6];
-        statusCounts[status] = (statusCounts[status] || 0) + 1;
-      });
-      Logger.log('  Status distribution: ' + JSON.stringify(statusCounts));
-    }
+    const dayAbsensi = absensiDataFormatted.filter(a => a[1] === dateStr);
     
     absensi7Hari.push({
       tanggal: dateStr,
