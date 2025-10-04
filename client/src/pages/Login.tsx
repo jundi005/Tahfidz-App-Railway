@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,10 +6,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "@assets/6267064765221899735-removebg-preview_1759543320279.png";
 
-export default function Login() {
+interface LoginProps {
+  onLoginSuccess: () => void;
+}
+
+export default function Login({ onLoginSuccess }: LoginProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -18,11 +20,11 @@ export default function Login() {
 
     if (username === "lajnah" && password === "lajnah2025") {
       localStorage.setItem("isAuthenticated", "true");
-      setLocation("/");
       toast({
         title: "Berhasil",
         description: "Login berhasil"
       });
+      onLoginSuccess();
     } else {
       toast({
         title: "Gagal",

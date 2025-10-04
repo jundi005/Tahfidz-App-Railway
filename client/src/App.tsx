@@ -45,12 +45,16 @@ function App() {
     setLocation("/login");
   };
 
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
+
   if (!isAuthenticated) {
     return (
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <TooltipProvider>
-            <Login />
+            <Login onLoginSuccess={handleLoginSuccess} />
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>
