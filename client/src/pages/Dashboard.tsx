@@ -2,15 +2,23 @@ import { useQuery } from "@tanstack/react-query";
 import StatCard from "@/components/StatCard";
 import AttendanceChart from "@/components/AttendanceChart";
 import HafalanChart from "@/components/HafalanChart";
-import { Users, GraduationCap, UserCheck } from "lucide-react";
+import { Users, GraduationCap, UserCheck, CheckCircle2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import type { DashboardStats } from "@shared/schema";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import type { DashboardStats, Tasks } from "@shared/schema";
 
 export default function Dashboard() {
   const { data: stats, isLoading, error } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
   });
+
+  // Fetch open tasks
+  const { data: allTasks } = useQuery<Tasks[]>({
+    queryKey: ['/api/tasks'],
+  });
+
+  const openTasks = allTasks?.filter(task => task.Status === 'Open') || [];
 
   if (isLoading) {
     return (
@@ -138,6 +146,79 @@ export default function Dashboard() {
         <AttendanceChart data={attendanceData} />
         <HafalanChart data={hafalanData} />
       </div>
+
+      {/* Open Tasks Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5" />
+            Tugas yang Belum Selesai
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {openTasks.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">Tidak ada tugas yang belum selesai</p>
+          ) : (
+            <div className="space-y-2">
+              {openTasks.slice(0, 5).map((task) => {
+                const taskDate = new Date(task.Tanggal);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                taskDate.setHours(0, 0, 0, 0);
+                const isOverdue = taskDate < today;
+                
+                const getPriorityColor = (priority: string) => {
+                  switch (priority) {
+                    case 'High': return 'destructive';
+                    case 'Medium': return 'default';
+                    case 'Low': return 'secondary';
+                    default: return 'default';
+                  }
+                };
+                
+                return (
+                  <div
+                    key={task.TaskID}
+                    className="flex items-start gap-3 p-3 border rounded-md hover-elevate"
+                    data-testid={`open-task-${task.TaskID}`}
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium">{task.Judul}</p>
+                      {task.Deskripsi && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                          {task.Deskripsi}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className={`text-xs ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                          📅 {taskDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {isOverdue && ' (Terlambat)'}
+                        </span>
+                        {task.WaktuPengingat && (
+                          <span className="text-xs text-muted-foreground">
+                            🕒 {task.WaktuPengingat}
+                          </span>
+                        )}
+                        <Badge variant={getPriorityColor(task.Priority)} className="text-xs">
+                          {task.Priority}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          👤 {task.AssigneeType}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {openTasks.length > 5 && (
+                <p className="text-sm text-muted-foreground text-center pt-2">
+                  +{openTasks.length - 5} tugas lainnya
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

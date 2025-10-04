@@ -342,6 +342,90 @@ export default function Kalender() {
         </CardContent>
       </Card>
 
+      {/* Task List with Checklist */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Daftar Tugas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!tasks || tasks.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">Belum ada tugas</p>
+          ) : (
+            <div className="space-y-2">
+              {tasks.map((task) => {
+                const assignee = task.AssigneeType === 'Musammi' && task.AssigneeID
+                  ? allMusammi?.find(m => m.MusammiID === task.AssigneeID)
+                  : null;
+                
+                const taskDate = new Date(task.Tanggal);
+                const formattedDate = `${taskDate.getDate()} ${MONTHS[taskDate.getMonth()]} ${taskDate.getFullYear()}`;
+                
+                return (
+                  <div
+                    key={task.TaskID}
+                    className="flex items-start gap-3 p-3 border rounded-md hover-elevate"
+                    data-testid={`task-item-${task.TaskID}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className={`font-medium ${task.Status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>
+                            {task.Judul}
+                          </p>
+                          {task.Deskripsi && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {task.Deskripsi}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground">
+                              📅 {formattedDate}
+                            </span>
+                            {task.WaktuPengingat && (
+                              <span className="text-xs text-muted-foreground">
+                                🕒 {task.WaktuPengingat}
+                              </span>
+                            )}
+                            <Badge variant={getPriorityColor(task.Priority)} className="text-xs">
+                              {task.Priority}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              👤 {task.AssigneeType === 'Admin' ? 'Admin' : assignee?.NamaMusammi || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleStatus(task.TaskID, task.Status)}
+                            data-testid={`button-checklist-${task.TaskID}`}
+                          >
+                            {task.Status === 'Done' ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(task.TaskID)}
+                            data-testid={`button-delete-task-${task.TaskID}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Task Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-task">
