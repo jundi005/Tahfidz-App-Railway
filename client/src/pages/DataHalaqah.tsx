@@ -738,6 +738,7 @@ export default function DataHalaqah() {
       tanggal,
       marhalahId: absensiMarhalah as any,
       waktuId: selectedWaktu as any,
+      jenisHalaqah: "UTAMA",
       musammi: musammiAbsensi,
       santri: santriAbsensi,
     };
