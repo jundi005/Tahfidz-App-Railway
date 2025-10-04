@@ -3,7 +3,7 @@
 // UPDATED: October 4, 2025 - Added JenisHalaqah support for Halaqoh Pagi system
 
 // ========== CONFIGURATION ==========
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE'; // Replace with your spreadsheet ID
+const SPREADSHEET_ID = '13-UXljNPVC16m8lexvKraI7qRINUrjTsnARXz-8Of8s'; // Replace with your spreadsheet ID
 const HALAMAN_PER_JUZ = 20; // Conversion rate: 20 pages = 1 juz
 
 // ========== UTILITY FUNCTIONS ==========
