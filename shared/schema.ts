@@ -319,3 +319,23 @@ export interface AbsensiReportResponse {
   stats: AbsensiDistributionStats;
   total: number;
 }
+
+// ============= BATCH HALAQAH =============
+
+export const batchHalaqahRowSchema = z.object({
+  namaSantri: z.string().min(1),
+  marhalahSantri: z.enum(["MUT", "ALI", "JAM"]),
+  kelasSantri: z.string().min(1),
+  nomorUrutHalaqah: z.number().positive(),
+  namaMusammi: z.string().min(1),
+  marhalahMusammi: z.enum(["MUT", "ALI", "JAM"]),
+  kelasMusammi: z.string().min(1),
+});
+
+export const batchHalaqahRequestSchema = z.object({
+  rows: z.array(batchHalaqahRowSchema).min(1),
+  jenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
+});
+
+export type BatchHalaqahRow = z.infer<typeof batchHalaqahRowSchema>;
+export type BatchHalaqahRequest = z.infer<typeof batchHalaqahRequestSchema>;

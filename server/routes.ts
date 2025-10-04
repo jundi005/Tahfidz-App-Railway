@@ -7,11 +7,13 @@ import {
   insertSantriSchema,
   halaqahMembersSchema,
   batchAbsensiSchema,
+  batchHalaqahRequestSchema,
   insertHafalanBulananSchema,
   insertMurojaahBulananSchema,
   insertPenambahanHafalanSchema,
   insertTasksSchema,
 } from "@shared/schema";
+import type { Halaqah, Musammi, Santri, HalaqahMembers } from "@shared/schema";
 import { ZodError } from "zod";
 
 // Create partial schemas for updates
@@ -93,6 +95,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       if (error.message.toLowerCase().includes('not found')) {
         return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ========== BATCH HALAQAH ==========
+  app.post("/api/halaqah/batch", async (req, res) => {
+    try {
+      const validated = batchHalaqahRequestSchema.parse(req.body);
+      const { rows, jenisHalaqah } = validated;
+
+      // Fetch semua data yang diperlukan sekali di awal
+      const [allMusammi, allHalaqah, allSantri] = await Promise.all([
+        storage.getAllMusammi(),
+        storage.getAllHalaqah(),
+        storage.getAllSantri(),
+      ]);
+
+      // Group rows by halaqah
+      const halaqahGroups: Record<string, typeof rows> = {};
+      rows.forEach(row => {
+        const key = `${row.nomorUrutHalaqah}-${row.marhalahSantri}`;
+        if (!halaqahGroups[key]) {
+          halaqahGroups[key] = [];
+        }
+        halaqahGroups[key].push(row);
+      });
+
+      // Cache untuk halaqah members
+      const halaqahMembersCache = new Map<string, Set<string>>();
+      const createdEntities = {
+        musammi: [] as Musammi[],
+        halaqah: [] as Halaqah[],
+        santri: [] as Santri[],
+        members: [] as HalaqahMembers[],
+      };
+
+      // Process each halaqah group
+      for (const [key, groupRows] of Object.entries(halaqahGroups)) {
+        const firstRow = groupRows[0];
+
+        // 1. Create or find Musammi
+        let musammi = allMusammi.find(
+          m => m.NamaMusammi === firstRow.namaMusammi && m.MarhalahID === firstRow.marhalahMusammi
+        );
+
+        if (!musammi) {
+          musammi = await storage.createMusammi({
+            NamaMusammi: firstRow.namaMusammi,
+            MarhalahID: firstRow.marhalahMusammi,
+            KelasMusammi: firstRow.kelasMusammi,
+          });
+          allMusammi.push(musammi);
+          createdEntities.musammi.push(musammi);
+        }
+
+        // 2. Create or find Halaqah
+        let halaqah = allHalaqah.find(
+          h => h.NomorUrutHalaqah === firstRow.nomorUrutHalaqah && 
+               h.MarhalahID === firstRow.marhalahSantri &&
+               h.JenisHalaqah === jenisHalaqah
+        );
+
+        if (!halaqah) {
+          halaqah = await storage.createHalaqah({
+            NomorUrutHalaqah: firstRow.nomorUrutHalaqah,
+            MarhalahID: firstRow.marhalahSantri,
+            MusammiID: musammi.MusammiID,
+            KelasMusammi: firstRow.kelasMusammi,
+            JenisHalaqah: jenisHalaqah,
+          });
+          allHalaqah.push(halaqah);
+          createdEntities.halaqah.push(halaqah);
+        }
+
+        // 3. Fetch members untuk halaqah ini (sekali saja)
+        if (!halaqahMembersCache.has(halaqah.HalaqahID)) {
+          const members = await storage.getHalaqahMembers(halaqah.HalaqahID);
+          halaqahMembersCache.set(halaqah.HalaqahID, new Set(members.map(m => m.SantriID)));
+        }
+
+        const existingMemberIds = halaqahMembersCache.get(halaqah.HalaqahID)!;
+
+        // 4. Process santri untuk halaqah ini
+        for (const row of groupRows) {
+          // Create or find Santri
+          let santri = allSantri.find(
+            s => s.NamaSantri === row.namaSantri && s.MarhalahID === row.marhalahSantri
+          );
+
+          if (!santri) {
+            santri = await storage.createSantri({
+              NamaSantri: row.namaSantri,
+              MarhalahID: row.marhalahSantri,
+              Kelas: row.kelasSantri,
+              Aktif: true,
+            });
+            allSantri.push(santri);
+            createdEntities.santri.push(santri);
+          }
+
+          // Link Santri to Halaqah
+          if (!existingMemberIds.has(santri.SantriID)) {
+            const member = await storage.createHalaqahMember({
+              HalaqahID: halaqah.HalaqahID,
+              SantriID: santri.SantriID,
+              TanggalMulai: new Date().toISOString().split('T')[0],
+              JenisHalaqah: jenisHalaqah,
+            });
+            existingMemberIds.add(santri.SantriID);
+            createdEntities.members.push(member);
+          }
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        created: {
+          musammi: createdEntities.musammi.length,
+          halaqah: createdEntities.halaqah.length,
+          santri: createdEntities.santri.length,
+          members: createdEntities.members.length,
+        },
+      });
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.message });
       }
       res.status(500).json({ error: error.message });
     }
