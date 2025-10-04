@@ -37,8 +37,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========== HALAQAH CRUD ==========
   app.get("/api/halaqah", async (req, res) => {
     try {
-      const { marhalah } = req.query;
-      const halaqah = await storage.getAllHalaqah(marhalah as string);
+      const { marhalah, jenis } = req.query;
+      const halaqah = await storage.getAllHalaqah(marhalah as string, jenis as string);
       res.json(halaqah);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

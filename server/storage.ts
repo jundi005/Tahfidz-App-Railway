@@ -31,7 +31,7 @@ export interface IStorage {
 
   // Halaqah
   getHalaqah(id: string): Promise<Halaqah | undefined>;
-  getAllHalaqah(marhalahId?: string): Promise<Halaqah[]>;
+  getAllHalaqah(marhalahId?: string, jenisHalaqah?: string): Promise<Halaqah[]>;
   createHalaqah(halaqah: InsertHalaqah): Promise<Halaqah>;
   updateHalaqah(id: string, halaqah: Partial<InsertHalaqah>): Promise<Halaqah>;
   deleteHalaqah(id: string): Promise<void>;
@@ -273,8 +273,11 @@ export class GoogleSheetsStorage implements IStorage {
     return this.request<Halaqah>(`/halaqah/${id}`, { allowUndefined: true });
   }
 
-  async getAllHalaqah(marhalahId?: string): Promise<Halaqah[]> {
-    const query = marhalahId ? `?marhalah=${marhalahId}` : "";
+  async getAllHalaqah(marhalahId?: string, jenisHalaqah?: string): Promise<Halaqah[]> {
+    const params = new URLSearchParams();
+    if (marhalahId) params.append("marhalah", marhalahId);
+    if (jenisHalaqah) params.append("jenis", jenisHalaqah);
+    const query = params.toString() ? `?${params.toString()}` : "";
     return this.request<Halaqah[]>(`/halaqah${query}`);
   }
 
@@ -650,10 +653,13 @@ export class MemStorage implements IStorage {
     return this.halaqah.get(id);
   }
 
-  async getAllHalaqah(marhalahId?: string): Promise<Halaqah[]> {
-    const all = Array.from(this.halaqah.values());
+  async getAllHalaqah(marhalahId?: string, jenisHalaqah?: string): Promise<Halaqah[]> {
+    let all = Array.from(this.halaqah.values());
     if (marhalahId) {
-      return all.filter((h) => h.MarhalahID === marhalahId);
+      all = all.filter((h) => h.MarhalahID === marhalahId);
+    }
+    if (jenisHalaqah) {
+      all = all.filter((h) => h.JenisHalaqah === jenisHalaqah);
     }
     return all;
   }

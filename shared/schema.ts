@@ -12,7 +12,7 @@ export type Marhalah = z.infer<typeof marhalahSchema>;
 
 // Lookups_Waktu
 export const waktuSchema = z.object({
-  WaktuID: z.enum(["SUBUH", "ASHAR", "ISYA"]),
+  WaktuID: z.enum(["SUBUH", "DHUHA", "ASHAR", "ISYA"]),
   NamaWaktu: z.string(),
 });
 
@@ -58,6 +58,7 @@ export const halaqahSchema = z.object({
   MusammiID: z.string(),
   KelasMusammi: z.string(),
   NamaHalaqah: z.string().optional(),
+  JenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
 });
 
 export const insertHalaqahSchema = halaqahSchema.omit({ HalaqahID: true });
@@ -97,7 +98,7 @@ export const absensiSantriSchema = z.object({
   AbsensiSantriID: z.string(),
   Tanggal: z.string(), // YYYY-MM-DD
   MarhalahID: z.enum(["MUT", "ALI", "JAM"]),
-  WaktuID: z.enum(["SUBUH", "ASHAR", "ISYA"]),
+  WaktuID: z.enum(["SUBUH", "DHUHA", "ASHAR", "ISYA"]),
   HalaqahID: z.string(),
   SantriID: z.string(),
   StatusID: z.enum(["HADIR", "SAKIT", "IZIN", "ALPA", "TERLAMBAT"]),
@@ -114,7 +115,7 @@ export const absensiMusammiSchema = z.object({
   AbsensiMusammiID: z.string(),
   Tanggal: z.string(), // YYYY-MM-DD
   MarhalahID: z.enum(["MUT", "ALI", "JAM"]),
-  WaktuID: z.enum(["SUBUH", "ASHAR", "ISYA"]),
+  WaktuID: z.enum(["SUBUH", "DHUHA", "ASHAR", "ISYA"]),
   HalaqahID: z.string(),
   MusammiID: z.string(),
   StatusID: z.enum(["HADIR", "SAKIT", "IZIN", "ALPA", "TERLAMBAT"]),
@@ -130,7 +131,7 @@ export type InsertAbsensiMusammi = z.infer<typeof insertAbsensiMusammiSchema>;
 export const batchAbsensiSchema = z.object({
   tanggal: z.string(),
   marhalahId: z.enum(["MUT", "ALI", "JAM"]),
-  waktuId: z.enum(["SUBUH", "ASHAR", "ISYA"]),
+  waktuId: z.enum(["SUBUH", "DHUHA", "ASHAR", "ISYA"]),
   musammi: z.array(z.object({
     halaqahId: z.string(),
     musammiId: z.string(),
