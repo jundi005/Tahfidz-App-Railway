@@ -1,5 +1,6 @@
 // TAHFIDZ Google Apps Script Web App
 // Spreadsheet-based REST API for TAHFIDZ management system
+// UPDATED: October 4, 2025 - Added JenisHalaqah support for Halaqoh Pagi system
 
 // ========== CONFIGURATION ==========
 const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE'; // Replace with your spreadsheet ID
@@ -54,7 +55,7 @@ function validateMarhalahID(marhalahId) {
 }
 
 function validateWaktuID(waktuId) {
-  const valid = ['SUBUH', 'ASHAR', 'ISYA'];
+  const valid = ['SUBUH', 'DHUHA', 'ASHAR', 'ISYA'];
   if (!valid.includes(waktuId)) {
     throw new Error(`Invalid WaktuID: ${waktuId}`);
   }
@@ -64,6 +65,13 @@ function validateStatusID(statusId) {
   const valid = ['HADIR', 'SAKIT', 'IZIN', 'ALPA', 'TERLAMBAT'];
   if (!valid.includes(statusId)) {
     throw new Error(`Invalid StatusID: ${statusId}`);
+  }
+}
+
+function validateJenisHalaqah(jenisHalaqah) {
+  const valid = ['UTAMA', 'PAGI'];
+  if (!valid.includes(jenisHalaqah)) {
+    throw new Error(`Invalid JenisHalaqah: ${jenisHalaqah}`);
   }
 }
 
@@ -131,10 +139,16 @@ function getAllHalaqah(params) {
       MarhalahID: data[i][2],
       MusammiID: data[i][3],
       KelasMusammi: data[i][4],
-      NamaHalaqah: data[i][5] || ''
+      NamaHalaqah: data[i][5] || '',
+      JenisHalaqah: data[i][6] || 'UTAMA'  // NEW: Column 7 for JenisHalaqah
     };
     
+    // Filter by marhalah if param exists
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
+    
+    // Filter by jenis if param exists - THIS IS THE KEY FIX
+    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;
+    
     halaqah.push(item);
   }
   
@@ -153,7 +167,8 @@ function getHalaqahById(id) {
         MarhalahID: data[i][2],
         MusammiID: data[i][3],
         KelasMusammi: data[i][4],
-        NamaHalaqah: data[i][5] || ''
+        NamaHalaqah: data[i][5] || '',
+        JenisHalaqah: data[i][6] || 'UTAMA'
       };
     }
   }
@@ -162,6 +177,10 @@ function getHalaqahById(id) {
 
 function createHalaqah(body) {
   validateMarhalahID(body.MarhalahID);
+  
+  const jenisHalaqah = body.JenisHalaqah || 'UTAMA';
+  validateJenisHalaqah(jenisHalaqah);
+  
   const id = generateId();
   const sheet = getSheet('Halaqah');
   
@@ -171,17 +190,24 @@ function createHalaqah(body) {
     body.MarhalahID,
     body.MusammiID,
     body.KelasMusammi,
-    body.NamaHalaqah || ''
+    body.NamaHalaqah || '',
+    jenisHalaqah  // NEW: Save JenisHalaqah
   ]);
   
   return {
     HalaqahID: id,
-    ...body
+    NomorUrutHalaqah: body.NomorUrutHalaqah,
+    MarhalahID: body.MarhalahID,
+    MusammiID: body.MusammiID,
+    KelasMusammi: body.KelasMusammi,
+    NamaHalaqah: body.NamaHalaqah || '',
+    JenisHalaqah: jenisHalaqah
   };
 }
 
 function updateHalaqah(id, body) {
   if (body.MarhalahID) validateMarhalahID(body.MarhalahID);
+  if (body.JenisHalaqah) validateJenisHalaqah(body.JenisHalaqah);
   
   const sheet = getSheet('Halaqah');
   const data = sheet.getDataRange().getValues();
@@ -193,6 +219,7 @@ function updateHalaqah(id, body) {
       if (body.MusammiID) sheet.getRange(i + 1, 4).setValue(body.MusammiID);
       if (body.KelasMusammi) sheet.getRange(i + 1, 5).setValue(body.KelasMusammi);
       if (body.NamaHalaqah !== undefined) sheet.getRange(i + 1, 6).setValue(body.NamaHalaqah);
+      if (body.JenisHalaqah) sheet.getRange(i + 1, 7).setValue(body.JenisHalaqah);  // NEW
       
       return getHalaqahById(id);
     }
@@ -420,10 +447,12 @@ function getHalaqahMembers(params) {
       HalaqahID: data[i][0],
       SantriID: data[i][1],
       TanggalMulai: data[i][2],
-      TanggalSelesai: data[i][3] || ''
+      TanggalSelesai: data[i][3] || '',
+      JenisHalaqah: data[i][4] || 'UTAMA'  // NEW: Column 5 for JenisHalaqah
     };
     
     if (params.halaqahId && item.HalaqahID !== params.halaqahId) continue;
+    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;  // NEW: Filter by jenis
     members.push(item);
   }
   
@@ -433,15 +462,25 @@ function getHalaqahMembers(params) {
 function createHalaqahMember(body) {
   checkActiveMembership(body.SantriID);
   
+  const jenisHalaqah = body.JenisHalaqah || 'UTAMA';
+  validateJenisHalaqah(jenisHalaqah);
+  
   const sheet = getSheet('HalaqahMembers');
   sheet.appendRow([
     body.HalaqahID,
     body.SantriID,
     body.TanggalMulai,
-    body.TanggalSelesai || ''
+    body.TanggalSelesai || '',
+    jenisHalaqah  // NEW: Save JenisHalaqah
   ]);
   
-  return body;
+  return {
+    HalaqahID: body.HalaqahID,
+    SantriID: body.SantriID,
+    TanggalMulai: body.TanggalMulai,
+    TanggalSelesai: body.TanggalSelesai || '',
+    JenisHalaqah: jenisHalaqah
+  };
 }
 
 function updateHalaqahMember(halaqahId, santriId, body) {
@@ -452,12 +491,14 @@ function updateHalaqahMember(halaqahId, santriId, body) {
     if (data[i][0] === halaqahId && data[i][1] === santriId) {
       if (body.TanggalMulai) sheet.getRange(i + 1, 3).setValue(body.TanggalMulai);
       if (body.TanggalSelesai !== undefined) sheet.getRange(i + 1, 4).setValue(body.TanggalSelesai);
+      if (body.JenisHalaqah) sheet.getRange(i + 1, 5).setValue(body.JenisHalaqah);  // NEW
       
       return {
         HalaqahID: halaqahId,
         SantriID: santriId,
         TanggalMulai: body.TanggalMulai || data[i][2],
-        TanggalSelesai: body.TanggalSelesai || data[i][3]
+        TanggalSelesai: body.TanggalSelesai || data[i][3],
+        JenisHalaqah: body.JenisHalaqah || data[i][4] || 'UTAMA'
       };
     }
   }
@@ -483,6 +524,9 @@ function batchCreateAbsensi(body) {
   validateMarhalahID(body.marhalahId);
   validateWaktuID(body.waktuId);
   
+  const jenisHalaqah = body.jenisHalaqah || 'UTAMA';
+  validateJenisHalaqah(jenisHalaqah);
+  
   const musammiSheet = getSheet('AbsensiMusammi');
   const santriSheet = getSheet('AbsensiSantri');
   
@@ -502,7 +546,8 @@ function batchCreateAbsensi(body) {
       m.halaqahId,
       m.musammiId,
       m.statusId,
-      m.keterangan || ''
+      m.keterangan || '',
+      jenisHalaqah  // NEW: Column 9 for JenisHalaqah
     ]);
     
     musammiResult.push({
@@ -513,7 +558,8 @@ function batchCreateAbsensi(body) {
       HalaqahID: m.halaqahId,
       MusammiID: m.musammiId,
       StatusID: m.statusId,
-      Keterangan: m.keterangan || ''
+      Keterangan: m.keterangan || '',
+      JenisHalaqah: jenisHalaqah
     });
   }
   
@@ -530,7 +576,8 @@ function batchCreateAbsensi(body) {
       s.halaqahId,
       s.santriId,
       s.statusId,
-      s.keterangan || ''
+      s.keterangan || '',
+      jenisHalaqah  // NEW: Column 9 for JenisHalaqah
     ]);
     
     santriResult.push({
@@ -541,7 +588,8 @@ function batchCreateAbsensi(body) {
       HalaqahID: s.halaqahId,
       SantriID: s.santriId,
       StatusID: s.statusId,
-      Keterangan: s.keterangan || ''
+      Keterangan: s.keterangan || '',
+      JenisHalaqah: jenisHalaqah
     });
   }
   
@@ -569,6 +617,19 @@ function getHafalanBulanan(params) {
     
     if (params.bulan && item.Bulan !== params.bulan) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
+    if (params.jenis) {
+      // Filter based on halaqah jenis
+      const halaqahSheet = getSheet('Halaqah');
+      const halaqahData = halaqahSheet.getDataRange().getValues();
+      let halaqahJenis = 'UTAMA';
+      for (let j = 1; j < halaqahData.length; j++) {
+        if (halaqahData[j][0] === item.HalaqahID) {
+          halaqahJenis = halaqahData[j][6] || 'UTAMA';
+          break;
+        }
+      }
+      if (halaqahJenis !== params.jenis) continue;
+    }
     hafalan.push(item);
   }
   
@@ -661,6 +722,19 @@ function getMurojaahBulanan(params) {
     
     if (params.bulan && item.Bulan !== params.bulan) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
+    if (params.jenis) {
+      // Filter based on halaqah jenis
+      const halaqahSheet = getSheet('Halaqah');
+      const halaqahData = halaqahSheet.getDataRange().getValues();
+      let halaqahJenis = 'UTAMA';
+      for (let j = 1; j < halaqahData.length; j++) {
+        if (halaqahData[j][0] === item.HalaqahID) {
+          halaqahJenis = halaqahData[j][6] || 'UTAMA';
+          break;
+        }
+      }
+      if (halaqahJenis !== params.jenis) continue;
+    }
     
     murojaah.push(item);
   }
@@ -731,6 +805,110 @@ function getMurojaahBulananById(id) {
     }
   }
   return null;
+}
+
+// ========== PENAMBAHAN HAFALAN ==========
+
+function getPenambahanHafalan(params) {
+  const sheet = getSheet('PenambahanHafalan');
+  const data = sheet.getDataRange().getValues();
+  let penambahan = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    const item = {
+      PenambahanID: data[i][0],
+      Bulan: data[i][1],
+      SantriID: data[i][2],
+      HalaqahID: data[i][3],
+      MarhalahID: data[i][4],
+      Kelas: data[i][5],
+      MusammiID: data[i][6],
+      JumlahPenambahan: data[i][7],
+      Catatan: data[i][8] || ''
+    };
+    
+    if (params.bulan && item.Bulan !== params.bulan) continue;
+    if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
+    if (params.jenis) {
+      // Filter based on halaqah jenis
+      const halaqahSheet = getSheet('Halaqah');
+      const halaqahData = halaqahSheet.getDataRange().getValues();
+      let halaqahJenis = 'UTAMA';
+      for (let j = 1; j < halaqahData.length; j++) {
+        if (halaqahData[j][0] === item.HalaqahID) {
+          halaqahJenis = halaqahData[j][6] || 'UTAMA';
+          break;
+        }
+      }
+      if (halaqahJenis !== params.jenis) continue;
+    }
+    
+    penambahan.push(item);
+  }
+  
+  return penambahan;
+}
+
+function createPenambahanHafalan(body) {
+  const id = generateId();
+  const sheet = getSheet('PenambahanHafalan');
+  
+  // Normalize month format to YYYY-MM
+  const normalizedBulan = String(body.Bulan).trim().substring(0, 7);
+  
+  sheet.appendRow([
+    id,
+    normalizedBulan,
+    body.SantriID,
+    body.HalaqahID,
+    body.MarhalahID,
+    body.Kelas,
+    body.MusammiID,
+    body.JumlahPenambahan,
+    body.Catatan || ''
+  ]);
+  
+  // Auto-update HafalanBulanan
+  const juzToAdd = body.JumlahPenambahan / HALAMAN_PER_JUZ;
+  const hafalanSheet = getSheet('HafalanBulanan');
+  const hafalanData = hafalanSheet.getDataRange().getValues();
+  
+  let found = false;
+  for (let i = 1; i < hafalanData.length; i++) {
+    const existingBulan = String(hafalanData[i][1]).trim().substring(0, 7);
+    if (hafalanData[i][2] === body.SantriID && existingBulan === normalizedBulan) {
+      const currentJuz = parseFloat(hafalanData[i][7]) || 0;
+      const newJuz = currentJuz + juzToAdd;
+      hafalanSheet.getRange(i + 1, 8).setValue(newJuz);
+      found = true;
+      break;
+    }
+  }
+  
+  if (!found) {
+    hafalanSheet.appendRow([
+      generateId(),
+      normalizedBulan,
+      body.SantriID,
+      body.HalaqahID,
+      body.MarhalahID,
+      body.Kelas,
+      body.MusammiID,
+      juzToAdd
+    ]);
+  }
+  
+  return {
+    PenambahanID: id,
+    Bulan: normalizedBulan,
+    SantriID: body.SantriID,
+    HalaqahID: body.HalaqahID,
+    MarhalahID: body.MarhalahID,
+    Kelas: body.Kelas,
+    MusammiID: body.MusammiID,
+    JumlahPenambahan: body.JumlahPenambahan,
+    Catatan: body.Catatan || ''
+  };
 }
 
 // ========== BATCH IMPORTS ==========
@@ -825,11 +1003,8 @@ function batchCreatePenambahanHafalan(dataArray) {
     let found = false;
     for (let i = 1; i < hafalanData.length; i++) {
       const existingBulan = String(hafalanData[i][1]).trim().substring(0, 7);
-      const existingSantri = String(hafalanData[i][2]).trim();
-      
-      if (existingSantri === String(body.SantriID).trim() && existingBulan === normalizedBulan) {
-        // Update existing - ensure numeric addition
-        const currentJuz = Number(hafalanData[i][7]) || 0;
+      if (hafalanData[i][2] === body.SantriID && existingBulan === normalizedBulan) {
+        const currentJuz = parseFloat(hafalanData[i][7]) || 0;
         const newJuz = currentJuz + juzToAdd;
         hafalanSheet.getRange(i + 1, 8).setValue(newJuz);
         found = true;
@@ -838,10 +1013,8 @@ function batchCreatePenambahanHafalan(dataArray) {
     }
     
     if (!found) {
-      // Create new hafalan record
-      const hafalanId = generateId();
       hafalanSheet.appendRow([
-        hafalanId,
+        generateId(),
         normalizedBulan,
         body.SantriID,
         body.HalaqahID,
@@ -852,95 +1025,20 @@ function batchCreatePenambahanHafalan(dataArray) {
       ]);
     }
     
-    results.push({ PenambahanID: id, ...body });
+    results.push({
+      PenambahanID: id,
+      Bulan: normalizedBulan,
+      SantriID: body.SantriID,
+      HalaqahID: body.HalaqahID,
+      MarhalahID: body.MarhalahID,
+      Kelas: body.Kelas,
+      MusammiID: body.MusammiID,
+      JumlahPenambahan: jumlah,
+      Catatan: body.Catatan || ''
+    });
   });
   
   return results;
-}
-
-// ========== PENAMBAHAN HAFALAN WITH AUTO UPDATE ==========
-
-function createPenambahanHafalan(body) {
-  const id = generateId();
-  const sheet = getSheet('PenambahanHafalan');
-  
-  // Normalize month format to YYYY-MM
-  const normalizedBulan = String(body.Bulan).trim().substring(0, 7);
-  
-  // Save penambahan
-  sheet.appendRow([
-    id,
-    normalizedBulan,
-    body.SantriID,
-    body.HalaqahID,
-    body.MarhalahID,
-    body.Kelas,
-    body.MusammiID,
-    Number(body.JumlahPenambahan),
-    body.Catatan || ''
-  ]);
-  
-  // Auto-update HafalanBulanan
-  const juzToAdd = Number(body.JumlahPenambahan) / HALAMAN_PER_JUZ;
-  const hafalanSheet = getSheet('HafalanBulanan');
-  const hafalanData = hafalanSheet.getDataRange().getValues();
-  
-  let found = false;
-  for (let i = 1; i < hafalanData.length; i++) {
-    const existingBulan = String(hafalanData[i][1]).trim().substring(0, 7);
-    const existingSantri = String(hafalanData[i][2]).trim();
-    
-    if (existingSantri === String(body.SantriID).trim() && existingBulan === normalizedBulan) {
-      // Update existing - ensure numeric addition
-      const currentJuz = Number(hafalanData[i][7]) || 0;
-      hafalanSheet.getRange(i + 1, 8).setValue(currentJuz + juzToAdd);
-      found = true;
-      break;
-    }
-  }
-  
-  if (!found) {
-    // Create new HafalanBulanan entry
-    hafalanSheet.appendRow([
-      generateId(),
-      normalizedBulan,
-      body.SantriID,
-      body.HalaqahID,
-      body.MarhalahID,
-      body.Kelas,
-      body.MusammiID,
-      juzToAdd
-    ]);
-  }
-  
-  return { PenambahanID: id, ...body };
-}
-
-function getPenambahanHafalan(params) {
-  const sheet = getSheet('PenambahanHafalan');
-  const data = sheet.getDataRange().getValues();
-  let penambahan = [];
-  
-  for (let i = 1; i < data.length; i++) {
-    const item = {
-      PenambahanID: data[i][0],
-      Bulan: data[i][1],
-      SantriID: data[i][2],
-      HalaqahID: data[i][3],
-      MarhalahID: data[i][4],
-      Kelas: data[i][5],
-      MusammiID: data[i][6],
-      JumlahPenambahan: data[i][7],
-      Catatan: data[i][8] || ''
-    };
-    
-    if (params.bulan && item.Bulan !== params.bulan) continue;
-    if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
-    
-    penambahan.push(item);
-  }
-  
-  return penambahan;
 }
 
 // ========== TASKS CRUD ==========
@@ -1061,12 +1159,14 @@ function getAbsensiSantri(params) {
       HalaqahID: data[i][4],
       SantriID: data[i][5],
       StatusID: data[i][6],
-      Keterangan: data[i][7] || ''
+      Keterangan: data[i][7] || '',
+      JenisHalaqah: data[i][8] || 'UTAMA'  // NEW: Column 9
     };
     
     if (params.tanggal && item.Tanggal !== params.tanggal) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
     if (params.waktu && item.WaktuID !== params.waktu) continue;
+    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;  // NEW: Filter by jenis
     
     absensi.push(item);
   }
@@ -1088,12 +1188,14 @@ function getAbsensiMusammi(params) {
       HalaqahID: data[i][4],
       MusammiID: data[i][5],
       StatusID: data[i][6],
-      Keterangan: data[i][7] || ''
+      Keterangan: data[i][7] || '',
+      JenisHalaqah: data[i][8] || 'UTAMA'  // NEW: Column 9
     };
     
     if (params.tanggal && item.Tanggal !== params.tanggal) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
     if (params.waktu && item.WaktuID !== params.waktu) continue;
+    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;  // NEW: Filter by jenis
     
     absensi.push(item);
   }
@@ -1126,6 +1228,7 @@ function getAbsensiReport(params) {
         personId: absensiData[i][5],
         statusId: absensiData[i][6],
         keterangan: absensiData[i][7] || '',
+        jenisHalaqah: absensiData[i][8] || 'UTAMA',  // NEW
         peran: 'Santri'
       };
       
@@ -1138,6 +1241,7 @@ function getAbsensiReport(params) {
         if (absen.tanggal > params.tanggalSampai) continue;
       }
       if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
+      if (params.jenis && absen.jenisHalaqah !== params.jenis) continue;  // NEW
       
       // Find santri info
       const santri = santriData.find(s => s[0] === absen.personId);
@@ -1166,6 +1270,7 @@ function getAbsensiReport(params) {
         personId: absensiData[i][5],
         statusId: absensiData[i][6],
         keterangan: absensiData[i][7] || '',
+        jenisHalaqah: absensiData[i][8] || 'UTAMA',  // NEW
         peran: 'Musammi'
       };
       
@@ -1178,6 +1283,7 @@ function getAbsensiReport(params) {
         if (absen.tanggal > params.tanggalSampai) continue;
       }
       if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
+      if (params.jenis && absen.jenisHalaqah !== params.jenis) continue;  // NEW
       
       // Find musammi info
       const musammi = musammiData.find(m => m[0] === absen.personId);
