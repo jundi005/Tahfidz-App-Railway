@@ -47,11 +47,11 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-full bg-white p-2 flex items-center justify-center">
+          <div className="w-28 h-28 rounded-full bg-white p-3 flex items-center justify-center overflow-hidden">
             <img 
               src={logoImage} 
               alt="Lajnah Al-Qur'an Logo" 
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover rounded-full"
               data-testid="img-logo"
             />
           </div>
