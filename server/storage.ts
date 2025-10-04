@@ -68,11 +68,13 @@ export interface IStorage {
     tanggal: string,
     marhalahId?: string,
     waktuId?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiSantri[]>;
   getAbsensiMusammi(
     tanggal: string,
     marhalahId?: string,
     waktuId?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiMusammi[]>;
   getAbsensiReport(
     tanggalDari?: string,
@@ -80,12 +82,14 @@ export interface IStorage {
     marhalahId?: string,
     kelas?: string,
     peran?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiReportResponse>;
 
   // Hafalan
   getHafalanBulanan(
     bulan: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<HafalanBulanan[]>;
   createHafalanBulanan(hafalan: InsertHafalanBulanan): Promise<HafalanBulanan>;
   batchCreateHafalanBulanan(
@@ -101,6 +105,7 @@ export interface IStorage {
   getMurojaahBulanan(
     bulan: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<MurojaahBulanan[]>;
   createMurojaahBulanan(
     murojaah: InsertMurojaahBulanan,
@@ -118,6 +123,7 @@ export interface IStorage {
   getPenambahanHafalan(
     bulan?: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<PenambahanHafalan[]>;
   createPenambahanHafalan(
     penambahan: InsertPenambahanHafalan,
@@ -419,10 +425,12 @@ export class GoogleSheetsStorage implements IStorage {
     tanggal: string,
     marhalahId?: string,
     waktuId?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiSantri[]> {
     const params = new URLSearchParams({ tanggal });
     if (marhalahId) params.append("marhalah", marhalahId);
     if (waktuId) params.append("waktu", waktuId);
+    if (jenisHalaqah) params.append("jenis", jenisHalaqah);
     return this.request<AbsensiSantri[]>(
       `/absensi/santri?${params.toString()}`,
     );
@@ -432,10 +440,12 @@ export class GoogleSheetsStorage implements IStorage {
     tanggal: string,
     marhalahId?: string,
     waktuId?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiMusammi[]> {
     const params = new URLSearchParams({ tanggal });
     if (marhalahId) params.append("marhalah", marhalahId);
     if (waktuId) params.append("waktu", waktuId);
+    if (jenisHalaqah) params.append("jenis", jenisHalaqah);
     return this.request<AbsensiMusammi[]>(
       `/absensi/musammi?${params.toString()}`,
     );
@@ -447,6 +457,7 @@ export class GoogleSheetsStorage implements IStorage {
     marhalahId?: string,
     kelas?: string,
     peran?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiReportResponse> {
     const params = new URLSearchParams();
     if (tanggalDari) params.append("tanggalDari", tanggalDari);
@@ -454,6 +465,7 @@ export class GoogleSheetsStorage implements IStorage {
     if (marhalahId) params.append("marhalah", marhalahId);
     if (kelas) params.append("kelas", kelas);
     if (peran) params.append("peran", peran);
+    if (jenisHalaqah) params.append("jenis", jenisHalaqah);
     const queryString = params.toString();
     return this.request<AbsensiReportResponse>(
       queryString ? `/absensi/report?${queryString}` : `/absensi/report`,
@@ -463,9 +475,11 @@ export class GoogleSheetsStorage implements IStorage {
   async getHafalanBulanan(
     bulan: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<HafalanBulanan[]> {
     const params = new URLSearchParams({ bulan });
     if (marhalahId) params.append("marhalah", marhalahId);
+    if (jenisHalaqah) params.append("jenis", jenisHalaqah);
     return this.request<HafalanBulanan[]>(`/hafalan?${params.toString()}`);
   }
 
@@ -504,9 +518,11 @@ export class GoogleSheetsStorage implements IStorage {
   async getMurojaahBulanan(
     bulan: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<MurojaahBulanan[]> {
     const params = new URLSearchParams({ bulan });
     if (marhalahId) params.append("marhalah", marhalahId);
+    if (jenisHalaqah) params.append("jenis", jenisHalaqah);
     return this.request<MurojaahBulanan[]>(`/murojaah?${params.toString()}`);
   }
 
@@ -545,10 +561,12 @@ export class GoogleSheetsStorage implements IStorage {
   async getPenambahanHafalan(
     bulan?: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<PenambahanHafalan[]> {
     const params = new URLSearchParams();
     if (bulan) params.append("bulan", bulan);
     if (marhalahId) params.append("marhalah", marhalahId);
+    if (jenisHalaqah) params.append("jenis", jenisHalaqah);
     const queryString = params.toString();
     return this.request<PenambahanHafalan[]>(
       queryString ? `/penambahan?${queryString}` : "/penambahan",
@@ -812,6 +830,7 @@ export class MemStorage implements IStorage {
         MusammiID: m.musammiId,
         StatusID: m.statusId,
         Keterangan: m.keterangan,
+        JenisHalaqah: data.jenisHalaqah || "UTAMA",
       };
       this.absensiMusammi.push(absensi);
       musammiAbsensi.push(absensi);
@@ -827,6 +846,7 @@ export class MemStorage implements IStorage {
         SantriID: s.santriId,
         StatusID: s.statusId,
         Keterangan: s.keterangan,
+        JenisHalaqah: data.jenisHalaqah || "UTAMA",
       };
       this.absensiSantri.push(absensi);
       santriAbsensi.push(absensi);
@@ -839,11 +859,14 @@ export class MemStorage implements IStorage {
     tanggal: string,
     marhalahId?: string,
     waktuId?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiSantri[]> {
     let filtered = this.absensiSantri.filter((a) => a.Tanggal === tanggal);
     if (marhalahId)
       filtered = filtered.filter((a) => a.MarhalahID === marhalahId);
     if (waktuId) filtered = filtered.filter((a) => a.WaktuID === waktuId);
+    if (jenisHalaqah)
+      filtered = filtered.filter((a) => a.JenisHalaqah === jenisHalaqah);
     return filtered;
   }
 
@@ -851,11 +874,14 @@ export class MemStorage implements IStorage {
     tanggal: string,
     marhalahId?: string,
     waktuId?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiMusammi[]> {
     let filtered = this.absensiMusammi.filter((a) => a.Tanggal === tanggal);
     if (marhalahId)
       filtered = filtered.filter((a) => a.MarhalahID === marhalahId);
     if (waktuId) filtered = filtered.filter((a) => a.WaktuID === waktuId);
+    if (jenisHalaqah)
+      filtered = filtered.filter((a) => a.JenisHalaqah === jenisHalaqah);
     return filtered;
   }
 
@@ -865,6 +891,7 @@ export class MemStorage implements IStorage {
     marhalahId?: string,
     kelas?: string,
     peran?: string,
+    jenisHalaqah?: string,
   ): Promise<AbsensiReportResponse> {
     let reportData: any[] = [];
 
@@ -884,6 +911,12 @@ export class MemStorage implements IStorage {
       if (marhalahId) {
         santriAbsensi = santriAbsensi.filter(
           (a) => a.MarhalahID === marhalahId,
+        );
+      }
+
+      if (jenisHalaqah) {
+        santriAbsensi = santriAbsensi.filter(
+          (a) => a.JenisHalaqah === jenisHalaqah,
         );
       }
 
@@ -929,6 +962,12 @@ export class MemStorage implements IStorage {
         );
       }
 
+      if (jenisHalaqah) {
+        musammiAbsensi = musammiAbsensi.filter(
+          (a) => a.JenisHalaqah === jenisHalaqah,
+        );
+      }
+
       musammiAbsensi.forEach((absen) => {
         const musammi = this.musammi.get(absen.MusammiID);
         if (musammi) {
@@ -968,12 +1007,16 @@ export class MemStorage implements IStorage {
   async getHafalanBulanan(
     bulan: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<HafalanBulanan[]> {
     let all = Array.from(this.hafalanBulanan.values()).filter(
       (h) => h.Bulan === bulan,
     );
     if (marhalahId) {
       all = all.filter((h) => h.MarhalahID === marhalahId);
+    }
+    if (jenisHalaqah) {
+      all = all.filter((h) => h.JenisHalaqah === jenisHalaqah);
     }
     return all;
   }
@@ -1017,12 +1060,16 @@ export class MemStorage implements IStorage {
   async getMurojaahBulanan(
     bulan: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<MurojaahBulanan[]> {
     let all = Array.from(this.murojaahBulanan.values()).filter(
       (m) => m.Bulan === bulan,
     );
     if (marhalahId) {
       all = all.filter((m) => m.MarhalahID === marhalahId);
+    }
+    if (jenisHalaqah) {
+      all = all.filter((m) => m.JenisHalaqah === jenisHalaqah);
     }
     return all;
   }
@@ -1066,6 +1113,7 @@ export class MemStorage implements IStorage {
   async getPenambahanHafalan(
     bulan?: string,
     marhalahId?: string,
+    jenisHalaqah?: string,
   ): Promise<PenambahanHafalan[]> {
     let result = [...this.penambahanHafalan];
 
@@ -1075,6 +1123,10 @@ export class MemStorage implements IStorage {
 
     if (marhalahId) {
       result = result.filter((p) => p.MarhalahID === marhalahId);
+    }
+
+    if (jenisHalaqah) {
+      result = result.filter((p) => p.JenisHalaqah === jenisHalaqah);
     }
 
     return result;

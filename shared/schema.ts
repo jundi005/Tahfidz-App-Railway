@@ -135,6 +135,7 @@ export const batchAbsensiSchema = z.object({
   tanggal: z.string(),
   marhalahId: z.enum(["MUT", "ALI", "JAM"]),
   waktuId: z.enum(["SUBUH", "DHUHA", "ASHAR", "ISYA"]),
+  jenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
   musammi: z.array(z.object({
     halaqahId: z.string(),
     musammiId: z.string(),
