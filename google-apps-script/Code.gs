@@ -1,10 +1,9 @@
 // TAHFIDZ Google Apps Script Web App
 // Spreadsheet-based REST API for TAHFIDZ management system
-// UPDATED: October 4, 2025 - Added JenisHalaqah support for Halaqoh Pagi system
 
 // ========== CONFIGURATION ==========
-const SPREADSHEET_ID = '13-UXljNPVC16m8lexvKraI7qRINUrjTsnARXz-8Of8s'; // Replace with your spreadsheet ID
-const HALAMAN_PER_JUZ = 20; // Conversion rate: 20 pages = 1 juz
+const SPREADSHEET_ID = '13-UXljNPVC16m8lexvKraI7qRINUrjTsnARXz-8Of8s';
+const HALAMAN_PER_JUZ = 20;
 
 // ========== UTILITY FUNCTIONS ==========
 
@@ -21,12 +20,6 @@ function parseQueryParams(e) {
   return e.parameter || {};
 }
 
-// Note: Google Apps Script doesn't support HTTP status codes in responses
-// Instead, we use response structure to indicate success/error
-// Success: { data: ... } or the data directly
-// Error: { error: "message", code: 404/400/500 }
-// Frontend must check for 'error' property to detect failures
-
 function jsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
@@ -39,10 +32,6 @@ function errorResponse(message, code = 400) {
 
 function notFoundResponse(message = 'Not found') {
   return errorResponse(message, 404);
-}
-
-function successResponse(message = 'Success') {
-  return jsonResponse({ success: true, message: message });
 }
 
 // ========== VALIDATION FUNCTIONS ==========
@@ -92,7 +81,7 @@ function checkActiveMembership(santriId, excludeHalaqahId = null) {
   const data = sheet.getDataRange().getValues();
   
   for (let i = 1; i < data.length; i++) {
-    if (data[i][1] === santriId && !data[i][3]) { // TanggalSelesai is empty
+    if (data[i][1] === santriId && !data[i][3]) {
       if (excludeHalaqahId && data[i][0] === excludeHalaqahId) continue;
       throw new Error(`Santri ${santriId} already has an active membership in another halaqah`);
     }
@@ -140,13 +129,10 @@ function getAllHalaqah(params) {
       MusammiID: data[i][3],
       KelasMusammi: data[i][4],
       NamaHalaqah: data[i][5] || '',
-      JenisHalaqah: data[i][6] || 'UTAMA'  // NEW: Column 7 for JenisHalaqah
+      JenisHalaqah: data[i][6] || 'UTAMA'
     };
     
-    // Filter by marhalah if param exists
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
-    
-    // Filter by jenis if param exists - THIS IS THE KEY FIX
     if (params.jenis && item.JenisHalaqah !== params.jenis) continue;
     
     halaqah.push(item);
@@ -191,7 +177,7 @@ function createHalaqah(body) {
     body.MusammiID,
     body.KelasMusammi,
     body.NamaHalaqah || '',
-    jenisHalaqah  // NEW: Save JenisHalaqah
+    jenisHalaqah
   ]);
   
   return {
@@ -219,7 +205,7 @@ function updateHalaqah(id, body) {
       if (body.MusammiID) sheet.getRange(i + 1, 4).setValue(body.MusammiID);
       if (body.KelasMusammi) sheet.getRange(i + 1, 5).setValue(body.KelasMusammi);
       if (body.NamaHalaqah !== undefined) sheet.getRange(i + 1, 6).setValue(body.NamaHalaqah);
-      if (body.JenisHalaqah) sheet.getRange(i + 1, 7).setValue(body.JenisHalaqah);  // NEW
+      if (body.JenisHalaqah) sheet.getRange(i + 1, 7).setValue(body.JenisHalaqah);
       
       return getHalaqahById(id);
     }
@@ -448,11 +434,11 @@ function getHalaqahMembers(params) {
       SantriID: data[i][1],
       TanggalMulai: data[i][2],
       TanggalSelesai: data[i][3] || '',
-      JenisHalaqah: data[i][4] || 'UTAMA'  // NEW: Column 5 for JenisHalaqah
+      JenisHalaqah: data[i][4] || 'UTAMA'
     };
     
     if (params.halaqahId && item.HalaqahID !== params.halaqahId) continue;
-    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;  // NEW: Filter by jenis
+    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;
     members.push(item);
   }
   
@@ -471,7 +457,7 @@ function createHalaqahMember(body) {
     body.SantriID,
     body.TanggalMulai,
     body.TanggalSelesai || '',
-    jenisHalaqah  // NEW: Save JenisHalaqah
+    jenisHalaqah
   ]);
   
   return {
@@ -491,7 +477,7 @@ function updateHalaqahMember(halaqahId, santriId, body) {
     if (data[i][0] === halaqahId && data[i][1] === santriId) {
       if (body.TanggalMulai) sheet.getRange(i + 1, 3).setValue(body.TanggalMulai);
       if (body.TanggalSelesai !== undefined) sheet.getRange(i + 1, 4).setValue(body.TanggalSelesai);
-      if (body.JenisHalaqah) sheet.getRange(i + 1, 5).setValue(body.JenisHalaqah);  // NEW
+      if (body.JenisHalaqah) sheet.getRange(i + 1, 5).setValue(body.JenisHalaqah);
       
       return {
         HalaqahID: halaqahId,
@@ -612,9 +598,6 @@ function batchCreateHalaqahMembers(dataArray) {
   const results = [];
   
   for (const body of dataArray) {
-    // Skip active membership check in batch to improve performance
-    // The frontend should handle this validation
-    
     const jenisHalaqah = body.JenisHalaqah || 'UTAMA';
     validateJenisHalaqah(jenisHalaqah);
     
@@ -638,8 +621,6 @@ function batchCreateHalaqahMembers(dataArray) {
   return results;
 }
 
-// ========== ABSENSI BATCH ==========
-
 function batchCreateAbsensi(body) {
   validateMarhalahID(body.marhalahId);
   validateWaktuID(body.waktuId);
@@ -653,7 +634,6 @@ function batchCreateAbsensi(body) {
   const musammiResult = [];
   const santriResult = [];
   
-  // Insert Musammi attendance
   for (const m of body.musammi) {
     validateStatusID(m.statusId);
     const id = generateId();
@@ -667,7 +647,7 @@ function batchCreateAbsensi(body) {
       m.musammiId,
       m.statusId,
       m.keterangan || '',
-      jenisHalaqah  // NEW: Column 9 for JenisHalaqah
+      jenisHalaqah
     ]);
     
     musammiResult.push({
@@ -683,7 +663,6 @@ function batchCreateAbsensi(body) {
     });
   }
   
-  // Insert Santri attendance
   for (const s of body.santri) {
     validateStatusID(s.statusId);
     const id = generateId();
@@ -697,7 +676,7 @@ function batchCreateAbsensi(body) {
       s.santriId,
       s.statusId,
       s.keterangan || '',
-      jenisHalaqah  // NEW: Column 9 for JenisHalaqah
+      jenisHalaqah
     ]);
     
     santriResult.push({
@@ -738,7 +717,6 @@ function getHafalanBulanan(params) {
     if (params.bulan && item.Bulan !== params.bulan) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
     if (params.jenis) {
-      // Filter based on halaqah jenis
       const halaqahSheet = getSheet('Halaqah');
       const halaqahData = halaqahSheet.getDataRange().getValues();
       let halaqahJenis = 'UTAMA';
@@ -754,6 +732,27 @@ function getHafalanBulanan(params) {
   }
   
   return hafalan;
+}
+
+function getHafalanBulananById(id) {
+  const sheet = getSheet('HafalanBulanan');
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === id) {
+      return {
+        RekapID: data[i][0],
+        Bulan: data[i][1],
+        SantriID: data[i][2],
+        HalaqahID: data[i][3],
+        MarhalahID: data[i][4],
+        Kelas: data[i][5],
+        MusammiID: data[i][6],
+        JumlahHafalan: data[i][7]
+      };
+    }
+  }
+  return null;
 }
 
 function createHafalanBulanan(body) {
@@ -800,25 +799,31 @@ function deleteHafalanBulanan(id) {
   throw new Error('Hafalan not found');
 }
 
-function getHafalanBulananById(id) {
+function batchCreateHafalanBulanan(dataArray) {
   const sheet = getSheet('HafalanBulanan');
-  const data = sheet.getDataRange().getValues();
+  const results = [];
   
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === id) {
-      return {
-        RekapID: data[i][0],
-        Bulan: data[i][1],
-        SantriID: data[i][2],
-        HalaqahID: data[i][3],
-        MarhalahID: data[i][4],
-        Kelas: data[i][5],
-        MusammiID: data[i][6],
-        JumlahHafalan: data[i][7]
-      };
+  dataArray.forEach(function(body) {
+    const jumlah = Number(body.JumlahHafalan);
+    if (isNaN(jumlah) || jumlah <= 0) {
+      throw new Error('JumlahHafalan must be a positive number');
     }
-  }
-  return null;
+    
+    const id = generateId();
+    sheet.appendRow([
+      id,
+      body.Bulan,
+      body.SantriID,
+      body.HalaqahID,
+      body.MarhalahID,
+      body.Kelas,
+      body.MusammiID,
+      jumlah
+    ]);
+    results.push({ RekapID: id, ...body });
+  });
+  
+  return results;
 }
 
 // ========== MUROJAAH BULANAN CRUD ==========
@@ -843,7 +848,6 @@ function getMurojaahBulanan(params) {
     if (params.bulan && item.Bulan !== params.bulan) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
     if (params.jenis) {
-      // Filter based on halaqah jenis
       const halaqahSheet = getSheet('Halaqah');
       const halaqahData = halaqahSheet.getDataRange().getValues();
       let halaqahJenis = 'UTAMA';
@@ -860,6 +864,27 @@ function getMurojaahBulanan(params) {
   }
   
   return murojaah;
+}
+
+function getMurojaahBulananById(id) {
+  const sheet = getSheet('MurojaahBulanan');
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === id) {
+      return {
+        MurojaahID: data[i][0],
+        Bulan: data[i][1],
+        SantriID: data[i][2],
+        HalaqahID: data[i][3],
+        MarhalahID: data[i][4],
+        Kelas: data[i][5],
+        MusammiID: data[i][6],
+        JumlahMurojaah: data[i][7]
+      };
+    }
+  }
+  return null;
 }
 
 function createMurojaahBulanan(body) {
@@ -906,25 +931,31 @@ function deleteMurojaahBulanan(id) {
   throw new Error('Murojaah not found');
 }
 
-function getMurojaahBulananById(id) {
+function batchCreateMurojaahBulanan(dataArray) {
   const sheet = getSheet('MurojaahBulanan');
-  const data = sheet.getDataRange().getValues();
+  const results = [];
   
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === id) {
-      return {
-        MurojaahID: data[i][0],
-        Bulan: data[i][1],
-        SantriID: data[i][2],
-        HalaqahID: data[i][3],
-        MarhalahID: data[i][4],
-        Kelas: data[i][5],
-        MusammiID: data[i][6],
-        JumlahMurojaah: data[i][7]
-      };
+  dataArray.forEach(function(body) {
+    const jumlah = Number(body.JumlahMurojaah);
+    if (isNaN(jumlah) || jumlah <= 0) {
+      throw new Error('JumlahMurojaah must be a positive number');
     }
-  }
-  return null;
+    
+    const id = generateId();
+    sheet.appendRow([
+      id,
+      body.Bulan,
+      body.SantriID,
+      body.HalaqahID,
+      body.MarhalahID,
+      body.Kelas,
+      body.MusammiID,
+      jumlah
+    ]);
+    results.push({ MurojaahID: id, ...body });
+  });
+  
+  return results;
 }
 
 // ========== PENAMBAHAN HAFALAN ==========
@@ -950,7 +981,6 @@ function getPenambahanHafalan(params) {
     if (params.bulan && item.Bulan !== params.bulan) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
     if (params.jenis) {
-      // Filter based on halaqah jenis
       const halaqahSheet = getSheet('Halaqah');
       const halaqahData = halaqahSheet.getDataRange().getValues();
       let halaqahJenis = 'UTAMA';
@@ -973,7 +1003,6 @@ function createPenambahanHafalan(body) {
   const id = generateId();
   const sheet = getSheet('PenambahanHafalan');
   
-  // Normalize month format to YYYY-MM
   const normalizedBulan = String(body.Bulan).trim().substring(0, 7);
   
   sheet.appendRow([
@@ -988,7 +1017,6 @@ function createPenambahanHafalan(body) {
     body.Catatan || ''
   ]);
   
-  // Auto-update HafalanBulanan
   const juzToAdd = body.JumlahPenambahan / HALAMAN_PER_JUZ;
   const hafalanSheet = getSheet('HafalanBulanan');
   const hafalanData = hafalanSheet.getDataRange().getValues();
@@ -1031,62 +1059,6 @@ function createPenambahanHafalan(body) {
   };
 }
 
-// ========== BATCH IMPORTS ==========
-
-function batchCreateHafalanBulanan(dataArray) {
-  const sheet = getSheet('HafalanBulanan');
-  const results = [];
-  
-  dataArray.forEach(function(body) {
-    const jumlah = Number(body.JumlahHafalan);
-    if (isNaN(jumlah) || jumlah <= 0) {
-      throw new Error('JumlahHafalan must be a positive number');
-    }
-    
-    const id = generateId();
-    sheet.appendRow([
-      id,
-      body.Bulan,
-      body.SantriID,
-      body.HalaqahID,
-      body.MarhalahID,
-      body.Kelas,
-      body.MusammiID,
-      jumlah
-    ]);
-    results.push({ RekapID: id, ...body });
-  });
-  
-  return results;
-}
-
-function batchCreateMurojaahBulanan(dataArray) {
-  const sheet = getSheet('MurojaahBulanan');
-  const results = [];
-  
-  dataArray.forEach(function(body) {
-    const jumlah = Number(body.JumlahMurojaah);
-    if (isNaN(jumlah) || jumlah <= 0) {
-      throw new Error('JumlahMurojaah must be a positive number');
-    }
-    
-    const id = generateId();
-    sheet.appendRow([
-      id,
-      body.Bulan,
-      body.SantriID,
-      body.HalaqahID,
-      body.MarhalahID,
-      body.Kelas,
-      body.MusammiID,
-      jumlah
-    ]);
-    results.push({ MurojaahID: id, ...body });
-  });
-  
-  return results;
-}
-
 function batchCreatePenambahanHafalan(dataArray) {
   const sheet = getSheet('PenambahanHafalan');
   const hafalanSheet = getSheet('HafalanBulanan');
@@ -1099,11 +1071,8 @@ function batchCreatePenambahanHafalan(dataArray) {
     }
     
     const id = generateId();
-    
-    // Normalize month format to YYYY-MM
     const normalizedBulan = String(body.Bulan).trim().substring(0, 7);
     
-    // Save penambahan
     sheet.appendRow([
       id,
       normalizedBulan,
@@ -1116,7 +1085,6 @@ function batchCreatePenambahanHafalan(dataArray) {
       body.Catatan || ''
     ]);
     
-    // Auto-update HafalanBulanan
     const juzToAdd = jumlah / HALAMAN_PER_JUZ;
     const hafalanData = hafalanSheet.getDataRange().getValues();
     
@@ -1188,6 +1156,28 @@ function getTasks(params) {
   return tasks;
 }
 
+function getTaskById(id) {
+  const sheet = getSheet('Tasks');
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === id) {
+      return {
+        TaskID: data[i][0],
+        Judul: data[i][1],
+        Deskripsi: data[i][2],
+        Tanggal: data[i][3],
+        WaktuPengingat: data[i][4] || '',
+        AssigneeType: data[i][5],
+        AssigneeID: data[i][6] || '',
+        Status: data[i][7],
+        Priority: data[i][8]
+      };
+    }
+  }
+  return null;
+}
+
 function createTask(body) {
   const id = generateId();
   const sheet = getSheet('Tasks');
@@ -1241,28 +1231,6 @@ function deleteTask(id) {
   throw new Error('Task not found');
 }
 
-function getTaskById(id) {
-  const sheet = getSheet('Tasks');
-  const data = sheet.getDataRange().getValues();
-  
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === id) {
-      return {
-        TaskID: data[i][0],
-        Judul: data[i][1],
-        Deskripsi: data[i][2],
-        Tanggal: data[i][3],
-        WaktuPengingat: data[i][4] || '',
-        AssigneeType: data[i][5],
-        AssigneeID: data[i][6] || '',
-        Status: data[i][7],
-        Priority: data[i][8]
-      };
-    }
-  }
-  return null;
-}
-
 // ========== ABSENSI QUERY ==========
 
 function getAbsensiSantri(params) {
@@ -1280,13 +1248,13 @@ function getAbsensiSantri(params) {
       SantriID: data[i][5],
       StatusID: data[i][6],
       Keterangan: data[i][7] || '',
-      JenisHalaqah: data[i][8] || 'UTAMA'  // NEW: Column 9
+      JenisHalaqah: data[i][8] || 'UTAMA'
     };
     
     if (params.tanggal && item.Tanggal !== params.tanggal) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
     if (params.waktu && item.WaktuID !== params.waktu) continue;
-    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;  // NEW: Filter by jenis
+    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;
     
     absensi.push(item);
   }
@@ -1309,13 +1277,13 @@ function getAbsensiMusammi(params) {
       MusammiID: data[i][5],
       StatusID: data[i][6],
       Keterangan: data[i][7] || '',
-      JenisHalaqah: data[i][8] || 'UTAMA'  // NEW: Column 9
+      JenisHalaqah: data[i][8] || 'UTAMA'
     };
     
     if (params.tanggal && item.Tanggal !== params.tanggal) continue;
     if (params.marhalah && item.MarhalahID !== params.marhalah) continue;
     if (params.waktu && item.WaktuID !== params.waktu) continue;
-    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;  // NEW: Filter by jenis
+    if (params.jenis && item.JenisHalaqah !== params.jenis) continue;
     
     absensi.push(item);
   }
@@ -1334,7 +1302,6 @@ function getAbsensiReport(params) {
   
   let reportData = [];
   
-  // Get santri attendance if peran is 'santri' or 'all'
   if (!params.peran || params.peran === 'santri' || params.peran === 'all') {
     const absensiData = absensiSantriSheet.getDataRange().getValues().slice(1);
     
@@ -1348,11 +1315,10 @@ function getAbsensiReport(params) {
         personId: absensiData[i][5],
         statusId: absensiData[i][6],
         keterangan: absensiData[i][7] || '',
-        jenisHalaqah: absensiData[i][8] || 'UTAMA',  // NEW
+        jenisHalaqah: absensiData[i][8] || 'UTAMA',
         peran: 'Santri'
       };
       
-      // Apply filters
       if (params.tanggalDari && params.tanggalSampai) {
         if (absen.tanggal < params.tanggalDari || absen.tanggal > params.tanggalSampai) continue;
       } else if (params.tanggalDari) {
@@ -1361,9 +1327,8 @@ function getAbsensiReport(params) {
         if (absen.tanggal > params.tanggalSampai) continue;
       }
       if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
-      if (params.jenis && absen.jenisHalaqah !== params.jenis) continue;  // NEW
+      if (params.jenis && absen.jenisHalaqah !== params.jenis) continue;
       
-      // Find santri info
       const santri = santriData.find(s => s[0] === absen.personId);
       if (santri) {
         absen.nama = santri[1];
@@ -1376,7 +1341,6 @@ function getAbsensiReport(params) {
     }
   }
   
-  // Get musammi attendance if peran is 'musammi' or 'all'
   if (!params.peran || params.peran === 'musammi' || params.peran === 'all') {
     const absensiData = absensiMusammiSheet.getDataRange().getValues().slice(1);
     
@@ -1390,11 +1354,10 @@ function getAbsensiReport(params) {
         personId: absensiData[i][5],
         statusId: absensiData[i][6],
         keterangan: absensiData[i][7] || '',
-        jenisHalaqah: absensiData[i][8] || 'UTAMA',  // NEW
+        jenisHalaqah: absensiData[i][8] || 'UTAMA',
         peran: 'Musammi'
       };
       
-      // Apply filters
       if (params.tanggalDari && params.tanggalSampai) {
         if (absen.tanggal < params.tanggalDari || absen.tanggal > params.tanggalSampai) continue;
       } else if (params.tanggalDari) {
@@ -1403,9 +1366,8 @@ function getAbsensiReport(params) {
         if (absen.tanggal > params.tanggalSampai) continue;
       }
       if (params.marhalah && absen.marhalahId !== params.marhalah) continue;
-      if (params.jenis && absen.jenisHalaqah !== params.jenis) continue;  // NEW
+      if (params.jenis && absen.jenisHalaqah !== params.jenis) continue;
       
-      // Find musammi info
       const musammi = musammiData.find(m => m[0] === absen.personId);
       if (musammi) {
         absen.nama = musammi[1];
@@ -1418,7 +1380,6 @@ function getAbsensiReport(params) {
     }
   }
   
-  // Calculate distribution stats
   const stats = {
     hadir: reportData.filter(a => a.statusId === 'HADIR').length,
     sakit: reportData.filter(a => a.statusId === 'SAKIT').length,
@@ -1447,7 +1408,6 @@ function getDashboardStats() {
   const musammiData = musammiSheet.getDataRange().getValues().slice(1);
   const halaqahData = halaqahSheet.getDataRange().getValues().slice(1);
   
-  // Filter only active santri (column index 4 is Aktif)
   const totalSantri = santriData.filter(s => s[4] === true).length;
   const santriMutawassitoh = santriData.filter(s => s[4] === true && s[2] === 'MUT').length;
   const santriAliyah = santriData.filter(s => s[4] === true && s[2] === 'ALI').length;
@@ -1459,14 +1419,11 @@ function getDashboardStats() {
   const musammiHalaqahAliyah = halaqahData.filter(h => h[2] === 'ALI').length;
   const musammiHalaqahMutawassitoh = halaqahData.filter(h => h[2] === 'MUT').length;
   
-  // Get today's date in format YYYY-MM-DD
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const absensiData = absensiSantriSheet.getDataRange().getValues().slice(1);
   
-  // Convert date objects to string format for comparison
   const absensiDataFormatted = absensiData.map(row => {
     const rowCopy = [...row];
-    // Convert date in column 1 (index 1) to YYYY-MM-DD string
     if (rowCopy[1] instanceof Date) {
       rowCopy[1] = Utilities.formatDate(rowCopy[1], Session.getScriptTimeZone(), 'yyyy-MM-dd');
     }
@@ -1483,7 +1440,6 @@ function getDashboardStats() {
     terlambat: todayAbsensi.filter(a => a[6] === 'TERLAMBAT').length
   };
   
-  // Get attendance data for last 7 days
   const absensi7Hari = [];
   const todayDate = new Date();
   
@@ -1503,16 +1459,14 @@ function getDashboardStats() {
     });
   }
   
-  // Get hafalan data for last 4 months
   const hafalanData = hafalanSheet.getDataRange().getValues().slice(1);
   const monthlyHafalan = {};
   
   hafalanData.forEach(row => {
-    const bulan = row[1]; // Bulan (format: YYYY-MM)
-    const marhalah = row[4]; // MarhalahID
-    const juz = parseFloat(row[7]); // JumlahHafalan
+    const bulan = row[1];
+    const marhalah = row[4];
+    const juz = parseFloat(row[7]);
     
-    // Skip if bulan or juz is invalid
     if (!bulan || isNaN(juz)) return;
     
     if (!monthlyHafalan[bulan]) {
@@ -1526,7 +1480,6 @@ function getDashboardStats() {
     }
   });
   
-  // Sort months chronologically and get last 4
   const sortedMonths = Object.keys(monthlyHafalan).sort();
   const last4Months = sortedMonths.slice(-4);
   
@@ -1567,7 +1520,6 @@ function doGet(e) {
     const path = e.parameter.path || '';
     const params = parseQueryParams(e);
     
-    // Route handling
     if (path === 'lookups') {
       return jsonResponse(getLookups());
     }
@@ -1622,7 +1574,6 @@ function doGet(e) {
     
     return notFoundResponse('Invalid endpoint');
   } catch (error) {
-    // Check if it's a "not found" error (case-insensitive)
     if (error.toString().toLowerCase().includes('not found')) {
       return notFoundResponse(error.toString());
     }
@@ -1632,7 +1583,6 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    // Check for method override
     const methodOverride = e.parameter._method || '';
     
     if (methodOverride === 'PUT') {
@@ -1696,7 +1646,6 @@ function doPost(e) {
     
     return notFoundResponse('Invalid endpoint');
   } catch (error) {
-    // Check if it's a "not found" error (case-insensitive)
     if (error.toString().toLowerCase().includes('not found')) {
       return notFoundResponse(error.toString());
     }
@@ -1735,7 +1684,6 @@ function doPut(e) {
     
     return notFoundResponse('Invalid endpoint');
   } catch (error) {
-    // Check if it's a "not found" error (case-insensitive)
     if (error.toString().toLowerCase().includes('not found')) {
       return notFoundResponse(error.toString());
     }
@@ -1750,38 +1698,36 @@ function doDelete(e) {
     
     if (path === 'halaqah') {
       deleteHalaqah(id);
-      // Return success response for DELETE (Google Apps Script doesn't support 204)
-      return successResponse('Halaqah deleted');
+      return jsonResponse({ success: true, message: 'Halaqah deleted' });
     }
     else if (path === 'musammi') {
       deleteMusammi(id);
-      return successResponse('Musammi deleted');
+      return jsonResponse({ success: true, message: 'Musammi deleted' });
     }
     else if (path === 'santri') {
       deleteSantri(id);
-      return successResponse('Santri deleted');
+      return jsonResponse({ success: true, message: 'Santri deleted' });
     }
     else if (path === 'halaqah-members') {
       const santriId = e.parameter.santriId;
       deleteHalaqahMember(id, santriId);
-      return successResponse('Halaqah member deleted');
+      return jsonResponse({ success: true, message: 'Halaqah member deleted' });
     }
     else if (path === 'hafalan') {
       deleteHafalanBulanan(id);
-      return successResponse('Hafalan deleted');
+      return jsonResponse({ success: true, message: 'Hafalan deleted' });
     }
     else if (path === 'murojaah') {
       deleteMurojaahBulanan(id);
-      return successResponse('Murojaah deleted');
+      return jsonResponse({ success: true, message: 'Murojaah deleted' });
     }
     else if (path === 'tasks') {
       deleteTask(id);
-      return successResponse('Task deleted');
+      return jsonResponse({ success: true, message: 'Task deleted' });
     }
     
     return notFoundResponse('Invalid endpoint');
   } catch (error) {
-    // Check if it's a "not found" error (case-insensitive)
     if (error.toString().toLowerCase().includes('not found')) {
       return notFoundResponse(error.toString());
     }
