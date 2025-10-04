@@ -1064,24 +1064,14 @@ export default function DataHalaqah() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between gap-2">
                     <span>Halaqah {halaqah.nomorUrutHalaqah} - {marhalahName}</span>
-                    <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleOpenEditDialog(halaqah.halaqahId)}
-                        data-testid={`button-edit-halaqah-${halaqah.halaqahId}`}
-                      >
-                        <Pencil className="h-4 w-4 text-primary" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => setDeleteHalaqahDialog({open: true, halaqahId: halaqah.halaqahId, nomorUrut: halaqah.nomorUrutHalaqah})}
-                        data-testid={`button-delete-halaqah-${halaqah.halaqahId}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => handleOpenEditDialog(halaqah.halaqahId)}
+                      data-testid={`button-edit-halaqah-${halaqah.halaqahId}`}
+                    >
+                      <Pencil className="h-4 w-4 text-primary" />
+                    </Button>
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     Musammi: {halaqah.namaMusammi}
@@ -1097,21 +1087,11 @@ export default function DataHalaqah() {
                         {halaqah.santriList.map((santri) => (
                           <div 
                             key={santri.santriId} 
-                            className="flex items-center justify-between p-2 rounded-lg border bg-card hover-elevate"
+                            className="p-2 rounded-lg border bg-card hover-elevate"
                             data-testid={`item-santri-${santri.santriId}`}
                           >
-                            <div className="flex-1">
-                              <p className="font-medium">{santri.namaSantri}</p>
-                              <p className="text-sm text-muted-foreground">Kelas: {santri.kelas}</p>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => setDeleteMemberDialog({open: true, halaqahId: halaqah.halaqahId, santriId: santri.santriId, namaSantri: santri.namaSantri})}
-                              data-testid={`button-delete-member-${santri.santriId}`}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <p className="font-medium">{santri.namaSantri}</p>
+                            <p className="text-sm text-muted-foreground">Kelas: {santri.kelas}</p>
                           </div>
                         ))}
                       </div>
