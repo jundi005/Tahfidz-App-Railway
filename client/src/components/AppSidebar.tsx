@@ -47,12 +47,14 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
         <div className="flex flex-col items-center gap-3">
-          <img 
-            src={logoImage} 
-            alt="Lajnah Al-Qur'an Logo" 
-            className="w-20 h-20 object-contain"
-            data-testid="img-logo"
-          />
+          <div className="w-20 h-20 rounded-full bg-white p-2 flex items-center justify-center">
+            <img 
+              src={logoImage} 
+              alt="Lajnah Al-Qur'an Logo" 
+              className="w-full h-full object-contain"
+              data-testid="img-logo"
+            />
+          </div>
           <h2 className="text-lg font-bold text-center" data-testid="text-brand-name">
             Lajnah Al-Qur'an
           </h2>
@@ -61,7 +63,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-2">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location === item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
