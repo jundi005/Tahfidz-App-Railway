@@ -518,6 +518,126 @@ function deleteHalaqahMember(halaqahId, santriId) {
   throw new Error('Halaqah member not found');
 }
 
+// ========== BATCH OPERATIONS ==========
+
+function batchCreateMusammi(dataArray) {
+  const sheet = getSheet('Musammi');
+  const results = [];
+  
+  for (const body of dataArray) {
+    validateMarhalahID(body.MarhalahID);
+    validateKelas(body.MarhalahID, body.KelasMusammi);
+    
+    const id = generateId();
+    sheet.appendRow([
+      id,
+      body.NamaMusammi,
+      body.MarhalahID,
+      body.KelasMusammi,
+      body.Catatan || ''
+    ]);
+    
+    results.push({
+      MusammiID: id,
+      ...body
+    });
+  }
+  
+  return results;
+}
+
+function batchCreateHalaqah(dataArray) {
+  const sheet = getSheet('Halaqah');
+  const results = [];
+  
+  for (const body of dataArray) {
+    validateMarhalahID(body.MarhalahID);
+    
+    const jenisHalaqah = body.JenisHalaqah || 'UTAMA';
+    validateJenisHalaqah(jenisHalaqah);
+    
+    const id = generateId();
+    sheet.appendRow([
+      id,
+      body.NomorUrutHalaqah,
+      body.MarhalahID,
+      body.MusammiID,
+      body.KelasMusammi,
+      body.NamaHalaqah || '',
+      jenisHalaqah
+    ]);
+    
+    results.push({
+      HalaqahID: id,
+      NomorUrutHalaqah: body.NomorUrutHalaqah,
+      MarhalahID: body.MarhalahID,
+      MusammiID: body.MusammiID,
+      KelasMusammi: body.KelasMusammi,
+      NamaHalaqah: body.NamaHalaqah || '',
+      JenisHalaqah: jenisHalaqah
+    });
+  }
+  
+  return results;
+}
+
+function batchCreateSantri(dataArray) {
+  const sheet = getSheet('Santri');
+  const results = [];
+  
+  for (const body of dataArray) {
+    validateMarhalahID(body.MarhalahID);
+    validateKelas(body.MarhalahID, body.Kelas);
+    
+    const id = generateId();
+    sheet.appendRow([
+      id,
+      body.NamaSantri,
+      body.MarhalahID,
+      body.Kelas,
+      body.Aktif
+    ]);
+    
+    results.push({
+      SantriID: id,
+      ...body
+    });
+  }
+  
+  return results;
+}
+
+function batchCreateHalaqahMembers(dataArray) {
+  const sheet = getSheet('HalaqahMembers');
+  const results = [];
+  
+  for (const body of dataArray) {
+    // Skip active membership check in batch to improve performance
+    // The frontend should handle this validation
+    
+    const jenisHalaqah = body.JenisHalaqah || 'UTAMA';
+    validateJenisHalaqah(jenisHalaqah);
+    
+    sheet.appendRow([
+      body.HalaqahID,
+      body.SantriID,
+      body.TanggalMulai,
+      body.TanggalSelesai || '',
+      jenisHalaqah
+    ]);
+    
+    results.push({
+      HalaqahID: body.HalaqahID,
+      SantriID: body.SantriID,
+      TanggalMulai: body.TanggalMulai,
+      TanggalSelesai: body.TanggalSelesai || '',
+      JenisHalaqah: jenisHalaqah
+    });
+  }
+  
+  return results;
+}
+
 // ========== ABSENSI BATCH ==========
 
 function batchCreateAbsensi(body) {
@@ -1528,14 +1648,26 @@ function doPost(e) {
     if (path === 'halaqah') {
       return jsonResponse(createHalaqah(body));
     }
+    else if (path === 'halaqah/batch') {
+      return jsonResponse(batchCreateHalaqah(body));
+    }
     else if (path === 'musammi') {
       return jsonResponse(createMusammi(body));
+    }
+    else if (path === 'musammi/batch') {
+      return jsonResponse(batchCreateMusammi(body));
     }
     else if (path === 'santri') {
       return jsonResponse(createSantri(body));
     }
+    else if (path === 'santri/batch') {
+      return jsonResponse(batchCreateSantri(body));
+    }
     else if (path === 'halaqah-members') {
       return jsonResponse(createHalaqahMember(body));
+    }
+    else if (path === 'halaqah-members/batch') {
+      return jsonResponse(batchCreateHalaqahMembers(body));
     }
     else if (path === 'absensi/batch') {
       return jsonResponse(batchCreateAbsensi(body));
