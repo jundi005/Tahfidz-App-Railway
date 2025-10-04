@@ -55,9 +55,14 @@ export function AppSidebar() {
               data-testid="img-logo"
             />
           </div>
-          <h2 className="text-lg font-bold text-center" data-testid="text-brand-name">
-            Lajnah Al-Qur'an
-          </h2>
+          <div className="text-center">
+            <h2 className="text-lg font-bold" data-testid="text-brand-name">
+              Lajnah Al-Qur'an
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1" data-testid="text-institution">
+              Mahad Al Faruq Assalafy litahfidzil quran kalibagor
+            </p>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
