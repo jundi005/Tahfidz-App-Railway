@@ -122,170 +122,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllSantri(),
       ]);
 
-      // Group rows by halaqah
+      // Group rows by halaqah (include jenisHalaqah to distinguish pagi/petang)
       const halaqahGroups: Record<string, typeof rows> = {};
       rows.forEach(row => {
-        const key = `${row.nomorUrutHalaqah}-${row.marhalahSantri}`;
+        const key = `${row.nomorUrutHalaqah}-${row.marhalahSantri}-${jenisHalaqah}`;
         if (!halaqahGroups[key]) {
           halaqahGroups[key] = [];
         }
         halaqahGroups[key].push(row);
       });
 
-      // Collect entities to create in batches
-      const musammiToCreate: InsertMusammi[] = [];
-      const halaqahToCreate: InsertHalaqah[] = [];
-      const santriToCreate: InsertSantri[] = [];
-      const membersToCreate: InsertHalaqahMembers[] = [];
-
-      // Map untuk tracking created entities
+      // Map untuk tracking entities (existing + to be created)
       const musammiMap = new Map<string, Musammi>();
       const halaqahMap = new Map<string, Halaqah>();
       const santriMap = new Map<string, Santri>();
 
+      // Populate maps with existing entities
+      allMusammi.forEach(m => musammiMap.set(`${m.NamaMusammi}-${m.MarhalahID}`, m));
+      allHalaqah.forEach(h => halaqahMap.set(`${h.NomorUrutHalaqah}-${h.MarhalahID}-${h.JenisHalaqah}`, h));
+      allSantri.forEach(s => santriMap.set(`${s.NamaSantri}-${s.MarhalahID}`, s));
+
+      // Deduplicate and collect new entities to create
+      const musammiToCreate = new Map<string, InsertMusammi>();
+      const halaqahToCreate = new Map<string, InsertHalaqah & { halaqahKey: string; musammiKey: string }>();
+      const santriToCreate = new Map<string, InsertSantri>();
+
       // First pass: identify what needs to be created
-      for (const [key, groupRows] of Object.entries(halaqahGroups)) {
+      for (const [halaqahKey, groupRows] of Object.entries(halaqahGroups)) {
         const firstRow = groupRows[0];
+        const musammiKey = `${firstRow.namaMusammi}-${firstRow.marhalahMusammi}`;
 
-        // 1. Check Musammi
-        let musammi = allMusammi.find(
-          m => m.NamaMusammi === firstRow.namaMusammi && m.MarhalahID === firstRow.marhalahMusammi
-        );
-
-        if (!musammi) {
-          const musammiKey = `${firstRow.namaMusammi}-${firstRow.marhalahMusammi}`;
-          if (!musammiMap.has(musammiKey)) {
-            musammiToCreate.push({
-              NamaMusammi: firstRow.namaMusammi,
-              MarhalahID: firstRow.marhalahMusammi,
-              KelasMusammi: firstRow.kelasMusammi,
-            });
-          }
+        // 1. Check if Musammi needs to be created
+        if (!musammiMap.has(musammiKey) && !musammiToCreate.has(musammiKey)) {
+          musammiToCreate.set(musammiKey, {
+            NamaMusammi: firstRow.namaMusammi,
+            MarhalahID: firstRow.marhalahMusammi,
+            KelasMusammi: firstRow.kelasMusammi,
+          });
         }
 
-        // 2. Check Halaqah
-        let halaqah = allHalaqah.find(
-          h => h.NomorUrutHalaqah === firstRow.nomorUrutHalaqah && 
-               h.MarhalahID === firstRow.marhalahSantri &&
-               h.JenisHalaqah === jenisHalaqah
-        );
-
-        if (!halaqah && !halaqahMap.has(key)) {
-          halaqahToCreate.push({
+        // 2. Check if Halaqah needs to be created
+        if (!halaqahMap.has(halaqahKey) && !halaqahToCreate.has(halaqahKey)) {
+          halaqahToCreate.set(halaqahKey, {
             NomorUrutHalaqah: firstRow.nomorUrutHalaqah,
             MarhalahID: firstRow.marhalahSantri,
             MusammiID: '', // Will be filled after musammi creation
             KelasMusammi: firstRow.kelasMusammi,
             JenisHalaqah: jenisHalaqah,
+            halaqahKey,
+            musammiKey,
           });
         }
 
-        // 3. Check Santri
+        // 3. Check which Santri need to be created
         for (const row of groupRows) {
-          let santri = allSantri.find(
-            s => s.NamaSantri === row.namaSantri && s.MarhalahID === row.marhalahSantri
-          );
-
-          if (!santri) {
-            const santriKey = `${row.namaSantri}-${row.marhalahSantri}`;
-            if (!santriMap.has(santriKey)) {
-              santriToCreate.push({
-                NamaSantri: row.namaSantri,
-                MarhalahID: row.marhalahSantri,
-                Kelas: row.kelasSantri,
-                Aktif: true,
-              });
-              santriMap.set(santriKey, {} as Santri);
-            }
+          const santriKey = `${row.namaSantri}-${row.marhalahSantri}`;
+          if (!santriMap.has(santriKey) && !santriToCreate.has(santriKey)) {
+            santriToCreate.set(santriKey, {
+              NamaSantri: row.namaSantri,
+              MarhalahID: row.marhalahSantri,
+              Kelas: row.kelasSantri,
+              Aktif: true,
+            });
           }
         }
       }
 
       // Batch create musammi first
       let createdMusammi: Musammi[] = [];
-      if (musammiToCreate.length > 0) {
-        createdMusammi = await storage.batchCreateMusammi(musammiToCreate);
-        createdMusammi.forEach(m => {
-          musammiMap.set(`${m.NamaMusammi}-${m.MarhalahID}`, m);
-          allMusammi.push(m);
-        });
+      if (musammiToCreate.size > 0) {
+        createdMusammi = await storage.batchCreateMusammi(Array.from(musammiToCreate.values()));
+        // Merge created musammi back into map
+        let index = 0;
+        for (const [key, _] of musammiToCreate) {
+          musammiMap.set(key, createdMusammi[index]);
+          index++;
+        }
       }
 
-      // Update halaqahToCreate with musammi IDs
-      for (let i = 0; i < halaqahToCreate.length; i++) {
-        const halaqahData = halaqahToCreate[i];
-        const groupEntries = Object.entries(halaqahGroups);
-        for (const [key, groupRows] of groupEntries) {
-          const firstRow = groupRows[0];
-          if (halaqahData.NomorUrutHalaqah === firstRow.nomorUrutHalaqah && 
-              halaqahData.MarhalahID === firstRow.marhalahSantri) {
-            const musammiKey = `${firstRow.namaMusammi}-${firstRow.marhalahMusammi}`;
-            const musammi = musammiMap.get(musammiKey) || allMusammi.find(
-              m => m.NamaMusammi === firstRow.namaMusammi && m.MarhalahID === firstRow.marhalahMusammi
-            );
-            if (musammi) {
-              halaqahData.MusammiID = musammi.MusammiID;
-            }
-            break;
-          }
+      // Update halaqahToCreate with correct musammi IDs
+      for (const [key, halaqahData] of halaqahToCreate) {
+        const musammi = musammiMap.get(halaqahData.musammiKey);
+        if (musammi) {
+          halaqahData.MusammiID = musammi.MusammiID;
         }
       }
 
       // Batch create halaqah
       let createdHalaqah: Halaqah[] = [];
-      if (halaqahToCreate.length > 0) {
-        createdHalaqah = await storage.batchCreateHalaqah(halaqahToCreate);
-        createdHalaqah.forEach(h => {
-          halaqahMap.set(`${h.NomorUrutHalaqah}-${h.MarhalahID}`, h);
-          allHalaqah.push(h);
-        });
+      if (halaqahToCreate.size > 0) {
+        const halaqahArray = Array.from(halaqahToCreate.values()).map(({ halaqahKey, musammiKey, ...rest }) => rest);
+        createdHalaqah = await storage.batchCreateHalaqah(halaqahArray);
+        // Merge created halaqah back into map
+        let index = 0;
+        for (const [key, _] of halaqahToCreate) {
+          halaqahMap.set(key, createdHalaqah[index]);
+          index++;
+        }
       }
 
       // Batch create santri
       let createdSantri: Santri[] = [];
-      if (santriToCreate.length > 0) {
-        createdSantri = await storage.batchCreateSantri(santriToCreate);
-        createdSantri.forEach(s => {
-          santriMap.set(`${s.NamaSantri}-${s.MarhalahID}`, s);
-          allSantri.push(s);
-        });
+      if (santriToCreate.size > 0) {
+        createdSantri = await storage.batchCreateSantri(Array.from(santriToCreate.values()));
+        // Merge created santri back into map
+        let index = 0;
+        for (const [key, _] of santriToCreate) {
+          santriMap.set(key, createdSantri[index]);
+          index++;
+        }
       }
 
-      // Fetch all halaqah members once
-      const halaqahIds = Object.values(halaqahGroups).map(groupRows => {
-        const firstRow = groupRows[0];
-        const key = `${firstRow.nomorUrutHalaqah}-${firstRow.marhalahSantri}`;
-        return halaqahMap.get(key) || allHalaqah.find(
-          h => h.NomorUrutHalaqah === firstRow.nomorUrutHalaqah && 
-               h.MarhalahID === firstRow.marhalahSantri &&
-               h.JenisHalaqah === jenisHalaqah
-        );
-      }).filter(Boolean).map(h => h!.HalaqahID);
+      // Now fetch halaqah members for all halaqahs we'll work with
+      const uniqueHalaqahIds = new Set<string>();
+      for (const [halaqahKey, _] of Object.entries(halaqahGroups)) {
+        const halaqah = halaqahMap.get(halaqahKey);
+        if (halaqah) {
+          uniqueHalaqahIds.add(halaqah.HalaqahID);
+        }
+      }
 
       const halaqahMembersCache = new Map<string, Set<string>>();
-      await Promise.all(halaqahIds.map(async (halaqahId) => {
+      await Promise.all(Array.from(uniqueHalaqahIds).map(async (halaqahId) => {
         const members = await storage.getHalaqahMembers(halaqahId);
         halaqahMembersCache.set(halaqahId, new Set(members.map(m => m.SantriID)));
       }));
 
-      // Prepare members to create
-      for (const [key, groupRows] of Object.entries(halaqahGroups)) {
-        const firstRow = groupRows[0];
-        const halaqah = halaqahMap.get(key) || allHalaqah.find(
-          h => h.NomorUrutHalaqah === firstRow.nomorUrutHalaqah && 
-               h.MarhalahID === firstRow.marhalahSantri &&
-               h.JenisHalaqah === jenisHalaqah
-        );
-
+      // Now prepare members to create (after all IDs are known)
+      const membersToCreate: InsertHalaqahMembers[] = [];
+      for (const [halaqahKey, groupRows] of Object.entries(halaqahGroups)) {
+        const halaqah = halaqahMap.get(halaqahKey);
         if (!halaqah) continue;
 
         const existingMemberIds = halaqahMembersCache.get(halaqah.HalaqahID) || new Set();
 
         for (const row of groupRows) {
           const santriKey = `${row.namaSantri}-${row.marhalahSantri}`;
-          const santri = santriMap.get(santriKey) || allSantri.find(
-            s => s.NamaSantri === row.namaSantri && s.MarhalahID === row.marhalahSantri
-          );
+          const santri = santriMap.get(santriKey);
 
           if (santri && !existingMemberIds.has(santri.SantriID)) {
             membersToCreate.push({
