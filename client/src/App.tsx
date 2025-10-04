@@ -11,6 +11,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Clock from "@/components/Clock";
 import Dashboard from "@/pages/Dashboard";
 import DataHalaqah from "@/pages/DataHalaqah";
+import HalaqohPagi from "@/pages/HalaqohPagi";
 import Perkembangan from "@/pages/Perkembangan";
 import Kalender from "@/pages/Kalender";
 import Laporan from "@/pages/Laporan";
@@ -22,6 +23,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/data-halaqah" component={DataHalaqah} />
+      <Route path="/halaqoh-pagi" component={HalaqohPagi} />
       <Route path="/perkembangan" component={Perkembangan} />
       <Route path="/kalender" component={Kalender} />
       <Route path="/laporan" component={Laporan} />

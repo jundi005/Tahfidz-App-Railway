@@ -45,6 +45,7 @@ const FALLBACK_LOOKUPS: LookupsResponse = {
   ],
   waktu: [
     { WaktuID: "SUBUH", NamaWaktu: "Subuh" },
+    { WaktuID: "DHUHA", NamaWaktu: "Dhuha" },
     { WaktuID: "ASHAR", NamaWaktu: "Ashar" },
     { WaktuID: "ISYA", NamaWaktu: "Isya" }
   ],
