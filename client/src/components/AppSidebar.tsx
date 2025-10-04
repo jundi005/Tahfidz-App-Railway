@@ -10,7 +10,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
-import logoImage from "@assets/6267064765221899735_1759497735933.jpg";
+import logoImage from "@assets/6267064765221899735-removebg-preview_1759543320279.png";
 
 const menuItems = [
   {
