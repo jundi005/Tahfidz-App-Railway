@@ -139,7 +139,20 @@ export default function HalaqohPagi() {
     queryFn: async () => {
       const response = await fetch('/api/halaqah?jenis=PAGI');
       if (!response.ok) throw new Error('Failed to fetch halaqah');
-      return response.json() as Promise<Halaqah[]>;
+      const data = await response.json() as Halaqah[];
+      
+      // SAFETY FILTER: Filter di frontend juga untuk memastikan hanya halaqah PAGI
+      // Ini untuk handle jika Google Apps Script belum memfilter dengan benar
+      const filteredData = data.filter(h => h.JenisHalaqah === 'PAGI');
+      
+      console.log('🔍 Halaqoh Pagi - Data dari server:', data.length, 'halaqah');
+      console.log('🔍 Halaqoh Pagi - Setelah filter PAGI:', filteredData.length, 'halaqah');
+      if (data.length > 0 && filteredData.length === 0) {
+        console.warn('⚠️ WARNING: Server mengirim halaqah tapi tidak ada yang JenisHalaqah=PAGI!');
+        console.warn('⚠️ Silakan perbaiki Google Apps Script untuk memfilter berdasarkan parameter jenis');
+      }
+      
+      return filteredData;
     },
   });
 
@@ -572,6 +585,7 @@ export default function HalaqohPagi() {
                   HalaqahID: halaqah.HalaqahID,
                   SantriID: santriId,
                   TanggalMulai: new Date().toISOString().split('T')[0],
+                  JenisHalaqah: "PAGI",
                 });
               }
             }
@@ -948,6 +962,7 @@ export default function HalaqohPagi() {
             HalaqahID: editingHalaqahId,
             SantriID: santriId,
             TanggalMulai: new Date().toISOString().split('T')[0],
+            JenisHalaqah: "PAGI",
           });
         }
       }

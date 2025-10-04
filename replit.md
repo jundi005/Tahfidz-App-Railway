@@ -4,32 +4,44 @@
 Web application untuk manajemen Al-Qur'an halaqah (kelompok belajar) dengan fitur dashboard statistik, manajemen data halaqah, tracking absensi, monitoring perkembangan santri (hafalan & murojaah), dan manajemen tugas. Menggunakan Google Sheets sebagai database melalui Google Apps Script Web App API.
 
 ## Current Status
-**Last Updated**: October 02, 2025
+**Last Updated**: October 04, 2025
 
 ### Completed Features ✅
-- **Data Model & Schema** - Complete entity schemas dengan Zod validation (Halaqah, Musammi, Santri, HalaqahMembers, Absensi, Hafalan, Murojaah, Tasks)
+- **Data Model & Schema** - Complete entity schemas dengan Zod validation (Halaqah, Musammi, Santri, HalaqahMembers, Absensi, Hafalan, Murojaah, Tasks) - ✅ Includes JenisHalaqah field (UTAMA/PAGI) untuk differentiate halaqah types
 - **Google Apps Script API** - Full REST API implementation dengan CRUD operations untuk semua entities
 - **Backend API Routes** - Express routes dengan proper validation dan error handling
 - **Dashboard Integration** - Real-time statistics dan charts dari Google Sheets data
 - **Data Halaqah Page** - Combined table showing santri, kelas, marhalah, halaqah number, musammi details, dan hafalan amount; includes CRUD dialogs untuk Musammi, Santri, Halaqah, dan HalaqahMembers
 - **Absensi Page** - Real API integration untuk batch attendance submission; displays all halaqah grouped by marhalah/waktu dengan radio buttons untuk 5 status types (Hadir/Sakit/Izin/Alpa/Terlambat)
+- **Halaqoh Pagi Page** - ✅ NEW: Dedicated page untuk halaqah pagi (waktu Dhuha, marhalah Mutawassitoh); includes CRUD operations, CSV upload, dan batch absensi submission dengan safety filter untuk memastikan hanya data PAGI yang ditampilkan
 - **Perkembangan Page** - 3 tabs: Hafalan Bulanan, Murojaah Bulanan, dan Penambahan Hafalan (auto-updates hafalan dengan page-to-juz conversion pada 20 pages per juz) - ✅ FIXED: Query parameters now working correctly
 - **Kalender & Tasks Page** - Calendar view dan task management (create/edit/delete tasks dengan priority, assignee, status, dan reminders)
 - **Dokumentasi** - Comprehensive setup documentation (SETUP.md, README.md) menjelaskan Google Apps Script configuration dan deployment steps
 - **Query Client Fix** - Fixed TanStack Query client to properly handle query parameters as objects in queryKey
 
-### Recent Fixes (Oct 2, 2025) 🔧
+### Recent Fixes (Oct 4, 2025) 🔧
+- **Halaqoh Pagi System**: Added safety filter di frontend untuk memastikan hanya halaqah dengan JenisHalaqah="PAGI" yang ditampilkan
+- **JenisHalaqah Field**: Updated semua halaqah-members creation untuk include JenisHalaqah field ("PAGI" untuk halaqoh pagi)
+- **Debug Logging**: Added console logging untuk monitor data filtering dan detect jika Google Apps Script belum memfilter dengan benar
+- **Documentation**: Created PANDUAN_FIX_HALAQOH_PAGI.md dengan detailed instructions untuk memperbaiki Google Apps Script filtering
+
+### Previous Fixes (Oct 2, 2025) 🔧
 - **Fixed Query Parameters**: Updated `getQueryFn` in `queryClient.ts` to properly serialize query parameters from queryKey objects
 - **Added GET /penambahan endpoint**: Added `getPenambahanHafalan()` function and endpoint to Google Apps Script for fetching penambahan hafalan data
 - **Improved URL Building**: QueryClient now handles complex queryKey patterns including `[url, params, ...segments]`
 
 ### Known Limitations & Next Steps 🔨
-1. **Form Validation** - Saat ini menggunakan plain state; perlu migrasi ke `react-hook-form` dengan `zodResolver` untuk better client-side validation
-2. **Error Handling** - Perlu better error states ketika backend unavailable; saat ini hanya menampilkan loading skeleton
-3. **Backend Configuration** - ⚠️ **CRITICAL**: Aplikasi MEMERLUKAN environment variable `GOOGLE_APPS_SCRIPT_URL` untuk berfungsi. Tanpa ini, semua API calls akan fail dengan 500 error
-4. **Google Apps Script Redeploy Required** - ⚠️ User needs to redeploy Google Apps Script dengan updated Code.gs untuk enable GET /penambahan endpoint
-5. **End-to-End Testing** - Comprehensive testing dengan real Google Sheets data masih pending
-6. **Production Deployment** - Setup guide untuk Google Apps Script deployment sudah ada di SETUP.md
+1. **Google Apps Script Filtering** - ⚠️ **URGENT**: Google Apps Script perlu di-update untuk memfilter halaqah berdasarkan parameter `jenis` (JenisHalaqah). Lihat PANDUAN_FIX_HALAQOH_PAGI.md untuk detailed instructions
+2. **Form Validation** - Saat ini menggunakan plain state; perlu migrasi ke `react-hook-form` dengan `zodResolver` untuk better client-side validation
+3. **Error Handling** - Perlu better error states ketika backend unavailable; saat ini hanya menampilkan loading skeleton
+4. **Backend Configuration** - ⚠️ **CRITICAL**: Aplikasi MEMERLUKAN environment variable `GOOGLE_APPS_SCRIPT_URL` untuk berfungsi. Tanpa ini, semua API calls akan fail dengan 500 error
+5. **Google Apps Script Updates Required** - ⚠️ User needs to redeploy Google Apps Script dengan updated Code.gs untuk:
+   - Enable GET /penambahan endpoint
+   - Add JenisHalaqah filtering di GET /halaqah
+   - Add JenisHalaqah field di POST /halaqah
+   - Add JenisHalaqah column di sheets Halaqah, Absensi_Santri, Absensi_Musammi, HalaqahMembers
+6. **End-to-End Testing** - Comprehensive testing dengan real Google Sheets data masih pending
+7. **Production Deployment** - Setup guide untuk Google Apps Script deployment sudah ada di SETUP.md
 
 ## Architecture
 
@@ -57,9 +69,9 @@ Base URL: `{GOOGLE_APPS_SCRIPT_URL}?path={endpoint}`
 - GET `/lookups` - Get all lookup data (marhalah, waktu, kehadiran, kelas)
 
 **Halaqah**
-- GET `/halaqah` - Get all halaqah (filter: `?marhalah=MUT|ALI`)
+- GET `/halaqah` - Get all halaqah (filters: `?marhalah=MUT|ALI&jenis=UTAMA|PAGI`)
 - GET `/halaqah?id={id}` - Get halaqah by ID
-- POST `/halaqah` - Create new halaqah
+- POST `/halaqah` - Create new halaqah (body includes JenisHalaqah: "UTAMA"|"PAGI")
 - PUT `/halaqah?id={id}` - Update halaqah
 - DELETE `/halaqah?id={id}` - Delete halaqah
 
