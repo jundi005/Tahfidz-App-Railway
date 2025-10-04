@@ -1183,10 +1183,12 @@ export class MemStorage implements IStorage {
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
-    // Get today's date in local timezone (Indonesia)
+    // Get today's date in YYYY-MM-DD format using local timezone
     const now = new Date();
-    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-    const today = localDate.toISOString().split("T")[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
 
     // Log for debugging
     console.log("[getDashboardStats] Today date:", today);
@@ -1245,12 +1247,20 @@ export class MemStorage implements IStorage {
     }> = [];
 
     for (let i = 6; i >= 0; i--) {
-      const date = new Date(localDate);
+      const date = new Date(now);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
+      
+      // Format date as YYYY-MM-DD using local timezone
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
       const dayAbsensi = this.absensiSantri.filter(
         (a) => a.Tanggal === dateStr,
       );
+
+      console.log(`[getDashboardStats] Day ${dateStr}: Found ${dayAbsensi.length} records, HADIR: ${dayAbsensi.filter((a) => a.StatusID === "HADIR").length}`);
 
       absensi7Hari.push({
         tanggal: dateStr,

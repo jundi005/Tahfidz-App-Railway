@@ -1356,11 +1356,28 @@ function getDashboardStats() {
   const absensi7Hari = [];
   const todayDate = new Date();
   
+  // Debug: Log total absensi records and sample dates
+  Logger.log('Total absensi records: ' + absensiData.length);
+  if (absensiData.length > 0) {
+    Logger.log('Sample dates in AbsensiSantri: ' + absensiData.slice(0, 3).map(a => a[1]).join(', '));
+  }
+  
   for (let i = 6; i >= 0; i--) {
     const date = new Date(todayDate);
     date.setDate(todayDate.getDate() - i);
     const dateStr = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
     const dayAbsensi = absensiData.filter(a => a[1] === dateStr);
+    
+    // Debug: Log each day's calculation
+    Logger.log('Day ' + dateStr + ': Found ' + dayAbsensi.length + ' records');
+    if (dayAbsensi.length > 0) {
+      const statusCounts = {};
+      dayAbsensi.forEach(a => {
+        const status = a[6];
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+      Logger.log('  Status distribution: ' + JSON.stringify(statusCounts));
+    }
     
     absensi7Hari.push({
       tanggal: dateStr,
