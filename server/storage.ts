@@ -33,6 +33,7 @@ export interface IStorage {
   getHalaqah(id: string): Promise<Halaqah | undefined>;
   getAllHalaqah(marhalahId?: string, jenisHalaqah?: string): Promise<Halaqah[]>;
   createHalaqah(halaqah: InsertHalaqah): Promise<Halaqah>;
+  batchCreateHalaqah(halaqah: InsertHalaqah[]): Promise<Halaqah[]>;
   updateHalaqah(id: string, halaqah: Partial<InsertHalaqah>): Promise<Halaqah>;
   deleteHalaqah(id: string): Promise<void>;
 
@@ -40,6 +41,7 @@ export interface IStorage {
   getMusammi(id: string): Promise<Musammi | undefined>;
   getAllMusammi(marhalahId?: string): Promise<Musammi[]>;
   createMusammi(musammi: InsertMusammi): Promise<Musammi>;
+  batchCreateMusammi(musammi: InsertMusammi[]): Promise<Musammi[]>;
   updateMusammi(id: string, musammi: Partial<InsertMusammi>): Promise<Musammi>;
   deleteMusammi(id: string): Promise<void>;
 
@@ -47,12 +49,14 @@ export interface IStorage {
   getSantri(id: string): Promise<Santri | undefined>;
   getAllSantri(marhalahId?: string, aktif?: boolean): Promise<Santri[]>;
   createSantri(santri: InsertSantri): Promise<Santri>;
+  batchCreateSantri(santri: InsertSantri[]): Promise<Santri[]>;
   updateSantri(id: string, santri: Partial<InsertSantri>): Promise<Santri>;
   deleteSantri(id: string): Promise<void>;
 
   // HalaqahMembers
   getHalaqahMembers(halaqahId: string): Promise<HalaqahMembers[]>;
   createHalaqahMember(member: InsertHalaqahMembers): Promise<HalaqahMembers>;
+  batchCreateHalaqahMembers(members: InsertHalaqahMembers[]): Promise<HalaqahMembers[]>;
   updateHalaqahMember(
     halaqahId: string,
     santriId: string,
@@ -294,6 +298,13 @@ export class GoogleSheetsStorage implements IStorage {
     });
   }
 
+  async batchCreateHalaqah(halaqah: InsertHalaqah[]): Promise<Halaqah[]> {
+    return this.request<Halaqah[]>("/halaqah/batch", {
+      method: "POST",
+      body: JSON.stringify(halaqah),
+    });
+  }
+
   async updateHalaqah(
     id: string,
     halaqah: Partial<InsertHalaqah>,
@@ -319,6 +330,13 @@ export class GoogleSheetsStorage implements IStorage {
 
   async createMusammi(musammi: InsertMusammi): Promise<Musammi> {
     return this.request<Musammi>("/musammi", {
+      method: "POST",
+      body: JSON.stringify(musammi),
+    });
+  }
+
+  async batchCreateMusammi(musammi: InsertMusammi[]): Promise<Musammi[]> {
+    return this.request<Musammi[]>("/musammi/batch", {
       method: "POST",
       body: JSON.stringify(musammi),
     });
@@ -357,6 +375,13 @@ export class GoogleSheetsStorage implements IStorage {
     });
   }
 
+  async batchCreateSantri(santri: InsertSantri[]): Promise<Santri[]> {
+    return this.request<Santri[]>("/santri/batch", {
+      method: "POST",
+      body: JSON.stringify(santri),
+    });
+  }
+
   async updateSantri(
     id: string,
     santri: Partial<InsertSantri>,
@@ -383,6 +408,13 @@ export class GoogleSheetsStorage implements IStorage {
     return this.request<HalaqahMembers>("/halaqah-members", {
       method: "POST",
       body: JSON.stringify(member),
+    });
+  }
+
+  async batchCreateHalaqahMembers(members: InsertHalaqahMembers[]): Promise<HalaqahMembers[]> {
+    return this.request<HalaqahMembers[]>("/halaqah-members/batch", {
+      method: "POST",
+      body: JSON.stringify(members),
     });
   }
 
@@ -689,6 +721,10 @@ export class MemStorage implements IStorage {
     return newHalaqah;
   }
 
+  async batchCreateHalaqah(halaqah: InsertHalaqah[]): Promise<Halaqah[]> {
+    return Promise.all(halaqah.map(h => this.createHalaqah(h)));
+  }
+
   async updateHalaqah(
     id: string,
     halaqah: Partial<InsertHalaqah>,
@@ -722,6 +758,10 @@ export class MemStorage implements IStorage {
     const newMusammi: Musammi = { ...musammi, MusammiID: id };
     this.musammi.set(id, newMusammi);
     return newMusammi;
+  }
+
+  async batchCreateMusammi(musammi: InsertMusammi[]): Promise<Musammi[]> {
+    return Promise.all(musammi.map(m => this.createMusammi(m)));
   }
 
   async updateMusammi(
@@ -762,6 +802,10 @@ export class MemStorage implements IStorage {
     return newSantri;
   }
 
+  async batchCreateSantri(santri: InsertSantri[]): Promise<Santri[]> {
+    return Promise.all(santri.map(s => this.createSantri(s)));
+  }
+
   async updateSantri(
     id: string,
     santri: Partial<InsertSantri>,
@@ -789,6 +833,10 @@ export class MemStorage implements IStorage {
     members.push(member);
     this.halaqahMembers.set(member.HalaqahID, members);
     return member;
+  }
+
+  async batchCreateHalaqahMembers(members: InsertHalaqahMembers[]): Promise<HalaqahMembers[]> {
+    return Promise.all(members.map(m => this.createHalaqahMember(m)));
   }
 
   async updateHalaqahMember(
