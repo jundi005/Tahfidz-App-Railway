@@ -693,11 +693,11 @@ export default function HalaqohPagi() {
   };
 
   const handleSubmitAbsensi = () => {
-    // Validasi marhalah tidak boleh "all" atau empty
-    if (!absensiMarhalah || absensiMarhalah === "all" || !["MUT", "ALI"].includes(absensiMarhalah)) {
+    // Validasi marhalah harus MUT (Halaqoh Pagi hanya untuk Mutawassitoh)
+    if (!absensiMarhalah || absensiMarhalah !== "MUT") {
       toast({
         title: "Error",
-        description: "Pilih marhalah yang valid (MUT atau ALI)",
+        description: "Halaqoh Pagi hanya untuk marhalah Mutawassitoh",
         variant: "destructive"
       });
       return;
@@ -744,6 +744,7 @@ export default function HalaqohPagi() {
       tanggal,
       marhalahId: absensiMarhalah as any,
       waktuId: selectedWaktu as any,
+      jenisHalaqah: "PAGI",
       musammi: musammiAbsensi,
       santri: santriAbsensi,
     };
@@ -1032,7 +1033,7 @@ export default function HalaqohPagi() {
         </Alert>
       )}
 
-      {/* Filter Marhalah */}
+      {/* Filter Marhalah - Halaqoh Pagi hanya untuk Mutawassitoh */}
       <div className="flex gap-4 items-center">
         <div className="w-48">
           <Label>Filter Marhalah</Label>
@@ -1042,7 +1043,7 @@ export default function HalaqohPagi() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua Marhalah</SelectItem>
-              {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
+              {lookups?.marhalah.filter(m => m.MarhalahID === 'MUT').map((m) => (
                 <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
                   {m.NamaMarhalah}
                 </SelectItem>
@@ -1141,7 +1142,7 @@ export default function HalaqohPagi() {
                     <SelectValue placeholder="Pilih Marhalah" />
                   </SelectTrigger>
                   <SelectContent>
-                    {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
+                    {lookups?.marhalah.filter(m => m.MarhalahID === 'MUT').map((m) => (
                       <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
                         {m.NamaMarhalah}
                       </SelectItem>
@@ -1151,13 +1152,13 @@ export default function HalaqohPagi() {
               </div>
               
               <div>
-                <Label htmlFor="waktu">Waktu</Label>
+                <Label htmlFor="waktu">Waktu (Halaqoh Pagi hanya Dhuha)</Label>
                 <Select value={selectedWaktu} onValueChange={setSelectedWaktu}>
                   <SelectTrigger data-testid="select-waktu-absensi">
                     <SelectValue placeholder="Pilih Waktu" />
                   </SelectTrigger>
                   <SelectContent>
-                    {lookups?.waktu.map((w) => (
+                    {lookups?.waktu.filter(w => w.WaktuID === 'DHUHA').map((w) => (
                       <SelectItem key={w.WaktuID} value={w.WaktuID}>
                         {w.NamaWaktu}
                       </SelectItem>
@@ -1360,7 +1361,7 @@ export default function HalaqohPagi() {
                               <SelectValue placeholder="Pilih" />
                             </SelectTrigger>
                             <SelectContent>
-                              {lookups?.marhalah.filter(m => m.MarhalahID !== 'JAM').map((m) => (
+                              {lookups?.marhalah.filter(m => m.MarhalahID === 'MUT').map((m) => (
                                 <SelectItem key={m.MarhalahID} value={m.MarhalahID}>
                                   {m.NamaMarhalah}
                                 </SelectItem>
