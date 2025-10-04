@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,25 +20,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Plus, CheckCircle2, Circle, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Tasks, InsertTasks, Musammi } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const DAYS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
 export default function Kalender() {
   const { toast } = useToast();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDialog, setShowDialog] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
   const [taskForm, setTaskForm] = useState<InsertTasks>({
     Judul: '',
@@ -53,7 +52,7 @@ export default function Kalender() {
 
   // Fetch tasks
   const { data: tasks, isLoading } = useQuery<Tasks[]>({
-    queryKey: ['/api/tasks', filterStatus],
+    queryKey: ['/api/tasks', 'ALL'],
   });
 
   // Fetch musammi for assignee options
@@ -109,16 +108,79 @@ export default function Kalender() {
   });
 
   const resetForm = () => {
+    const today = new Date().toISOString().split('T')[0];
     setTaskForm({
       Judul: '',
       Deskripsi: '',
-      Tanggal: new Date().toISOString().split('T')[0],
+      Tanggal: today,
       WaktuPengingat: '',
       AssigneeType: 'Admin',
       AssigneeID: '',
       Status: 'Open',
       Priority: 'Medium'
     });
+  };
+
+  // Calendar logic
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const startingDayOfWeek = firstDayOfMonth.getDay();
+  const daysInMonth = lastDayOfMonth.getDate();
+
+  // Generate calendar days
+  const calendarDays = useMemo(() => {
+    const days = [];
+    
+    // Add empty cells for days before month starts
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+    
+    return days;
+  }, [startingDayOfWeek, daysInMonth]);
+
+  // Get tasks for a specific date
+  const getTasksForDate = (day: number) => {
+    if (!tasks || !day) return [];
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return tasks.filter(task => task.Tanggal === dateStr);
+  };
+
+  // Navigation
+  const goToPreviousMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const goToNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Handle date click
+  const handleDateClick = (day: number | null) => {
+    if (!day) return;
+    const date = new Date(year, month, day);
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
+    // Set all states before opening dialog
+    setSelectedDate(date);
+    setTaskForm(prev => ({ ...prev, Tanggal: dateStr }));
+    
+    // Use setTimeout to ensure state updates before opening dialog
+    setTimeout(() => {
+      setShowDialog(true);
+    }, 0);
   };
 
   const handleToggleStatus = (taskId: string, currentStatus: string) => {
@@ -141,8 +203,13 @@ export default function Kalender() {
     }
   };
 
-  const filteredTasks = tasks ? (filterStatus && filterStatus !== 'ALL' ? tasks.filter(t => t.Status === filterStatus) : tasks) : [];
-  const openTasks = tasks?.filter(t => t.Status === 'Open') || [];
+  const isToday = (day: number | null) => {
+    if (!day) return false;
+    const today = new Date();
+    return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  };
+
+  const selectedDateTasks = selectedDate ? getTasksForDate(selectedDate.getDate()) : [];
 
   if (isLoading) {
     return (
@@ -151,15 +218,11 @@ export default function Kalender() {
           <Skeleton className="h-9 w-96" />
           <Skeleton className="h-5 w-full max-w-2xl mt-2" />
         </div>
-        <div className="grid grid-cols-1 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <Skeleton className="h-20 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <Skeleton className="h-96 w-full" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -173,150 +236,180 @@ export default function Kalender() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar Section */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Kalender
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-bold">
+              {MONTHS[month]} {year}
             </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Input
-                type="date"
-                defaultValue={new Date().toISOString().split('T')[0]}
-                data-testid="input-calendar-date"
-              />
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Tugas Terbuka</p>
-                <p className="text-3xl font-bold font-mono">{openTasks.length}</p>
-                <p className="text-xs text-muted-foreground">tugas menunggu penyelesaian</p>
-              </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToPreviousMonth}
+                data-testid="button-prev-month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={goToToday}
+                data-testid="button-today"
+              >
+                Hari Ini
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToNextMonth}
+                data-testid="button-next-month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Tasks Section */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Daftar Tugas</CardTitle>
-              <div className="flex items-center gap-2">
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-32" data-testid="select-filter-status">
-                    <SelectValue placeholder="Semua" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Semua</SelectItem>
-                    <SelectItem value="Open">Terbuka</SelectItem>
-                    <SelectItem value="Done">Selesai</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button onClick={() => setShowDialog(true)} data-testid="button-add-task">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Tambah Tugas
-                </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-2">
+            {/* Day headers */}
+            {DAYS.map((day) => (
+              <div
+                key={day}
+                className="text-center font-semibold text-sm text-muted-foreground py-2"
+              >
+                {day}
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">Status</TableHead>
-                    <TableHead>Judul</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Prioritas</TableHead>
-                    <TableHead>Assignee</TableHead>
-                    <TableHead className="w-12">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTasks.length > 0 ? (
-                    filteredTasks.map((task) => {
-                      const assignee = task.AssigneeType === 'Musammi' && task.AssigneeID
-                        ? allMusammi?.find(m => m.MusammiID === task.AssigneeID)
-                        : null;
-                      
-                      return (
-                        <TableRow key={task.TaskID} data-testid={`row-task-${task.TaskID}`}>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleToggleStatus(task.TaskID, task.Status)}
-                              data-testid={`button-toggle-${task.TaskID}`}
+            ))}
+            
+            {/* Calendar days */}
+            {calendarDays.map((day, index) => {
+              const dayTasks = day ? getTasksForDate(day) : [];
+              const openTasks = dayTasks.filter(t => t.Status === 'Open');
+              const hasOpenTasks = openTasks.length > 0;
+              
+              return (
+                <div
+                  key={index}
+                  onClick={() => handleDateClick(day)}
+                  className={`
+                    min-h-24 p-2 border rounded-md cursor-pointer transition-colors
+                    ${!day ? 'bg-muted/50 cursor-default' : 'hover-elevate active-elevate-2'}
+                    ${isToday(day) ? 'border-primary border-2' : ''}
+                  `}
+                  data-testid={day ? `calendar-day-${day}` : `calendar-empty-${index}`}
+                >
+                  {day && (
+                    <>
+                      <div className={`text-sm font-medium mb-1 ${isToday(day) ? 'text-primary font-bold' : ''}`}>
+                        {day}
+                      </div>
+                      {dayTasks.length > 0 && (
+                        <div className="space-y-1">
+                          {dayTasks.slice(0, 2).map((task) => (
+                            <div
+                              key={task.TaskID}
+                              className={`text-xs p-1 rounded truncate ${
+                                task.Status === 'Done' 
+                                  ? 'bg-muted text-muted-foreground line-through' 
+                                  : 'bg-primary/10 text-primary'
+                              }`}
+                              title={task.Judul}
                             >
-                              {task.Status === 'Done' ? (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-muted-foreground" />
-                              )}
-                            </Button>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className={`font-medium ${task.Status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>
-                                {task.Judul}
-                              </p>
-                              {task.Deskripsi && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {task.Deskripsi}
-                                </p>
-                              )}
+                              {task.Judul}
                             </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">{task.Tanggal}</TableCell>
-                          <TableCell>
-                            <Badge variant={getPriorityColor(task.Priority)}>
-                              {task.Priority}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {task.AssigneeType === 'Admin' ? (
-                              <span className="text-muted-foreground">Admin</span>
-                            ) : (
-                              assignee?.NamaMusammi || 'N/A'
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(task.TaskID)}
-                              data-testid={`button-delete-${task.TaskID}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
-                        Tidak ada tugas
-                      </TableCell>
-                    </TableRow>
+                          ))}
+                          {dayTasks.length > 2 && (
+                            <div className="text-xs text-muted-foreground">
+                              +{dayTasks.length - 2} lainnya
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Task Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent data-testid="dialog-task">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-task">
           <DialogHeader>
-            <DialogTitle>Tambah Tugas Baru</DialogTitle>
-            <DialogDescription>Buat tugas baru untuk admin atau musammi</DialogDescription>
+            <DialogTitle>
+              {selectedDate && `Tugas - ${selectedDate.getDate()} ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`}
+            </DialogTitle>
+            <DialogDescription>
+              Kelola tugas untuk tanggal ini
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+
+          {/* Existing tasks for selected date */}
+          {selectedDateTasks.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <h3 className="font-semibold">Tugas yang ada:</h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {selectedDateTasks.map((task) => {
+                  const assignee = task.AssigneeType === 'Musammi' && task.AssigneeID
+                    ? allMusammi?.find(m => m.MusammiID === task.AssigneeID)
+                    : null;
+                  
+                  return (
+                    <div
+                      key={task.TaskID}
+                      className="flex items-start gap-2 p-3 border rounded-md"
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleToggleStatus(task.TaskID, task.Status)}
+                        data-testid={`button-toggle-${task.TaskID}`}
+                      >
+                        {task.Status === 'Done' ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </Button>
+                      <div className="flex-1">
+                        <p className={`font-medium ${task.Status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>
+                          {task.Judul}
+                        </p>
+                        {task.Deskripsi && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {task.Deskripsi}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant={getPriorityColor(task.Priority)} className="text-xs">
+                            {task.Priority}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {task.AssigneeType === 'Admin' ? 'Admin' : assignee?.NamaMusammi || 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(task.TaskID)}
+                        data-testid={`button-delete-${task.TaskID}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Add new task form */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-semibold">Tambah Tugas Baru:</h3>
             <div className="space-y-2">
               <Label htmlFor="judul-task">Judul</Label>
               <Input
@@ -340,17 +433,7 @@ export default function Kalender() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="tanggal-task">Tanggal</Label>
-                <Input
-                  id="tanggal-task"
-                  type="date"
-                  value={taskForm.Tanggal}
-                  onChange={(e) => setTaskForm({ ...taskForm, Tanggal: e.target.value })}
-                  data-testid="input-tanggal-task"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="waktu-task">Waktu Pengingat (Opsional)</Label>
+                <Label htmlFor="waktu-task">Waktu Pengingat</Label>
                 <Input
                   id="waktu-task"
                   type="time"
@@ -359,22 +442,22 @@ export default function Kalender() {
                   data-testid="input-waktu-task"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="prioritas-task">Prioritas</Label>
-              <Select
-                value={taskForm.Priority}
-                onValueChange={(value: any) => setTaskForm({ ...taskForm, Priority: value })}
-              >
-                <SelectTrigger id="prioritas-task" data-testid="select-prioritas-task">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Low">Rendah</SelectItem>
-                  <SelectItem value="Medium">Sedang</SelectItem>
-                  <SelectItem value="High">Tinggi</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="prioritas-task">Prioritas</Label>
+                <Select
+                  value={taskForm.Priority}
+                  onValueChange={(value: any) => setTaskForm({ ...taskForm, Priority: value })}
+                >
+                  <SelectTrigger id="prioritas-task" data-testid="select-prioritas-task">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Rendah</SelectItem>
+                    <SelectItem value="Medium">Sedang</SelectItem>
+                    <SelectItem value="High">Tinggi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="assignee-type">Ditugaskan Kepada</Label>
@@ -415,13 +498,14 @@ export default function Kalender() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Batal</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Tutup</Button>
             <Button 
               onClick={() => createTaskMutation.mutate(taskForm)}
               disabled={createTaskMutation.isPending || !taskForm.Judul}
               data-testid="button-save-task"
             >
-              {createTaskMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+              <Plus className="h-4 w-4 mr-2" />
+              {createTaskMutation.isPending ? 'Menyimpan...' : 'Tambah Tugas'}
             </Button>
           </DialogFooter>
         </DialogContent>
