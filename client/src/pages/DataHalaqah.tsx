@@ -493,6 +493,10 @@ export default function DataHalaqah() {
         halaqahGroups[key].push(row);
       });
 
+      // OPTIMISASI: Ambil data halaqah yang sudah ada atau akan dibuat
+      const halaqahMap = new Map<string, Halaqah>();
+      const halaqahMembersCache = new Map<string, Set<string>>();
+
       // Create halaqah and santri/musammi
       for (const [key, groupRows] of Object.entries(halaqahGroups)) {
         const firstRow = groupRows[0];
@@ -532,7 +536,30 @@ export default function DataHalaqah() {
           halaqah = await halaqahResponse.json();
         }
 
-        // Create Santri and link to Halaqah
+        if (halaqah) {
+          halaqahMap.set(key, halaqah);
+          
+          // OPTIMISASI: Fetch members untuk halaqah ini SEKALI saja
+          if (!halaqahMembersCache.has(halaqah.HalaqahID)) {
+            const membersResponse = await fetch(`/api/halaqah-members?halaqahId=${halaqah.HalaqahID}`);
+            if (membersResponse.ok) {
+              const existingMembers: HalaqahMembers[] = await membersResponse.json();
+              const memberIds = new Set(existingMembers.map(m => m.SantriID));
+              halaqahMembersCache.set(halaqah.HalaqahID, memberIds);
+            } else {
+              halaqahMembersCache.set(halaqah.HalaqahID, new Set());
+            }
+          }
+        }
+      }
+
+      // Create Santri and link to Halaqah
+      for (const [key, groupRows] of Object.entries(halaqahGroups)) {
+        const halaqah = halaqahMap.get(key);
+        if (!halaqah) continue;
+
+        const existingMemberIds = halaqahMembersCache.get(halaqah.HalaqahID) || new Set();
+
         for (const row of groupRows) {
           // Create or find Santri
           let santriId: string | undefined;
@@ -553,22 +580,15 @@ export default function DataHalaqah() {
             santriId = newSantri.SantriID;
           }
 
-          // Link Santri to Halaqah (check duplicate first)
-          if (halaqah) {
-            // Check if membership already exists
-            const membersResponse = await fetch(`/api/halaqah-members?halaqahId=${halaqah.HalaqahID}`);
-            if (membersResponse.ok) {
-              const existingMembers: HalaqahMembers[] = await membersResponse.json();
-              const alreadyMember = existingMembers.some(m => m.SantriID === santriId);
-              
-              if (!alreadyMember) {
-                await apiRequest('POST', '/api/halaqah-members', {
-                  HalaqahID: halaqah.HalaqahID,
-                  SantriID: santriId,
-                  TanggalMulai: new Date().toISOString().split('T')[0],
-                });
-              }
-            }
+          // Link Santri to Halaqah (check duplicate menggunakan cache)
+          if (santriId && !existingMemberIds.has(santriId)) {
+            await apiRequest('POST', '/api/halaqah-members', {
+              HalaqahID: halaqah.HalaqahID,
+              SantriID: santriId,
+              TanggalMulai: new Date().toISOString().split('T')[0],
+            });
+            // Update cache agar tidak duplikat di iterasi berikutnya
+            existingMemberIds.add(santriId);
           }
         }
       }
