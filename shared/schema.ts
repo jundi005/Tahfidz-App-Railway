@@ -86,6 +86,7 @@ export const halaqahMembersSchema = z.object({
   SantriID: z.string(),
   TanggalMulai: z.string(), // YYYY-MM-DD
   TanggalSelesai: z.string().optional(), // YYYY-MM-DD or empty
+  JenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
 });
 
 export type HalaqahMembers = z.infer<typeof halaqahMembersSchema>;
@@ -103,6 +104,7 @@ export const absensiSantriSchema = z.object({
   SantriID: z.string(),
   StatusID: z.enum(["HADIR", "SAKIT", "IZIN", "ALPA", "TERLAMBAT"]),
   Keterangan: z.string().optional(),
+  JenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
 });
 
 export const insertAbsensiSantriSchema = absensiSantriSchema.omit({ AbsensiSantriID: true });
@@ -120,6 +122,7 @@ export const absensiMusammiSchema = z.object({
   MusammiID: z.string(),
   StatusID: z.enum(["HADIR", "SAKIT", "IZIN", "ALPA", "TERLAMBAT"]),
   Keterangan: z.string().optional(),
+  JenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
 });
 
 export const insertAbsensiMusammiSchema = absensiMusammiSchema.omit({ AbsensiMusammiID: true });
@@ -160,6 +163,7 @@ export const hafalanBulananSchema = z.object({
   Kelas: z.string(),
   MusammiID: z.string(),
   JumlahHafalan: z.number(), // dalam Juz (desimal)
+  JenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
 });
 
 export const insertHafalanBulananSchema = hafalanBulananSchema.omit({ RekapID: true });
@@ -177,6 +181,7 @@ export const murojaahBulananSchema = z.object({
   Kelas: z.string(),
   MusammiID: z.string(),
   JumlahMurojaah: z.number(), // dalam Juz (desimal)
+  JenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
 });
 
 export const insertMurojaahBulananSchema = murojaahBulananSchema.omit({ MurojaahID: true });
@@ -195,6 +200,7 @@ export const penambahanHafalanSchema = z.object({
   MusammiID: z.string(),
   JumlahPenambahan: z.number(), // dalam Halaman (integer)
   Catatan: z.string().optional(),
+  JenisHalaqah: z.enum(["UTAMA", "PAGI"]).default("UTAMA"),
 });
 
 export const insertPenambahanHafalanSchema = penambahanHafalanSchema.omit({ PenambahanID: true });
