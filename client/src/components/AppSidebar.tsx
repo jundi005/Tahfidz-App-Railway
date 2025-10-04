@@ -1,4 +1,4 @@
-import { Home, Users, BookOpen, Calendar, FileText, LogOut } from "lucide-react";
+import { Home, Users, BookOpen, Calendar, FileText, LogOut, Sun } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +23,11 @@ const menuItems = [
     title: "Data Halaqah",
     url: "/data-halaqah",
     icon: Users,
+  },
+  {
+    title: "Halaqoh Pagi",
+    url: "/halaqoh-pagi",
+    icon: Sun,
   },
   {
     title: "Perkembangan",
