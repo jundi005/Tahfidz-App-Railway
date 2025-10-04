@@ -1,4 +1,4 @@
-import { Home, Users, BookOpen, Calendar, FileText } from "lucide-react";
+import { Home, Users, BookOpen, Calendar, FileText, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -8,6 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/6267064765221899735-removebg-preview_1759543320279.png";
@@ -40,7 +41,11 @@ const menuItems = [
   },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  onLogout: () => void;
+}
+
+export function AppSidebar({ onLogout }: AppSidebarProps) {
   const [location] = useLocation();
 
   return (
@@ -83,6 +88,16 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-4 border-t">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={onLogout} data-testid="button-logout">
+              <LogOut className="h-5 w-5" />
+              <span>Logout</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

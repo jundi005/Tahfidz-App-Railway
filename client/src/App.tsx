@@ -9,8 +9,6 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import Clock from "@/components/Clock";
-import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
 import Dashboard from "@/pages/Dashboard";
 import DataHalaqah from "@/pages/DataHalaqah";
 import Perkembangan from "@/pages/Perkembangan";
@@ -71,22 +69,13 @@ function App() {
         <TooltipProvider>
           <SidebarProvider style={style as React.CSSProperties}>
             <div className="flex h-screen w-full">
-              <AppSidebar />
+              <AppSidebar onLogout={handleLogout} />
               <div className="flex flex-col flex-1">
                 <header className="flex items-center justify-between gap-4 p-4 border-b">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
                   <div className="flex items-center gap-4">
                     <Clock />
                     <ThemeToggle />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleLogout}
-                      data-testid="button-logout"
-                      title="Logout"
-                    >
-                      <LogOut className="h-5 w-5" />
-                    </Button>
                   </div>
                 </header>
                 <main className="flex-1 overflow-auto p-6">
