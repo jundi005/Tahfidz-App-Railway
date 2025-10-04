@@ -483,115 +483,22 @@ export default function DataHalaqah() {
         }
       }
 
-      // Group by halaqah (nomorUrutHalaqah + marhalah)
-      const halaqahGroups: Record<string, HalaqahRow[]> = {};
-      rows.forEach(row => {
-        const key = `${row.nomorUrutHalaqah}-${row.marhalahSantri}`;
-        if (!halaqahGroups[key]) {
-          halaqahGroups[key] = [];
-        }
-        halaqahGroups[key].push(row);
-      });
+      // Gunakan batch endpoint - kirim semua data sekaligus!
+      const batchData = {
+        rows: rows.map(row => ({
+          namaSantri: row.namaSantri,
+          marhalahSantri: row.marhalahSantri,
+          kelasSantri: row.kelasSantri,
+          nomorUrutHalaqah: parseInt(row.nomorUrutHalaqah),
+          namaMusammi: row.namaMusammi,
+          marhalahMusammi: row.marhalahMusammi,
+          kelasMusammi: row.kelasMusammi,
+        })),
+        jenisHalaqah: "UTAMA",
+      };
 
-      // OPTIMISASI: Ambil data halaqah yang sudah ada atau akan dibuat
-      const halaqahMap = new Map<string, Halaqah>();
-      const halaqahMembersCache = new Map<string, Set<string>>();
-
-      // Create halaqah and santri/musammi
-      for (const [key, groupRows] of Object.entries(halaqahGroups)) {
-        const firstRow = groupRows[0];
-        const nomorHalaqah = parseInt(firstRow.nomorUrutHalaqah);
-        
-        // Create or find Musammi
-        let musammiId: string | undefined;
-        const existingMusammi = allMusammi?.find(
-          m => m.NamaMusammi === firstRow.namaMusammi && m.MarhalahID === firstRow.marhalahMusammi
-        );
-        
-        if (existingMusammi) {
-          musammiId = existingMusammi.MusammiID;
-        } else {
-          const response = await apiRequest('POST', '/api/musammi', {
-            NamaMusammi: firstRow.namaMusammi,
-            MarhalahID: firstRow.marhalahMusammi,
-            KelasMusammi: firstRow.kelasMusammi,
-          });
-          const newMusammi: Musammi = await response.json();
-          musammiId = newMusammi.MusammiID;
-        }
-
-        // Check if Halaqah already exists
-        let halaqah: Halaqah | undefined = allHalaqah?.find(
-          h => h.NomorUrutHalaqah === nomorHalaqah && h.MarhalahID === firstRow.marhalahSantri
-        );
-        
-        if (!halaqah) {
-          // Create new Halaqah
-          const halaqahResponse = await apiRequest('POST', '/api/halaqah', {
-            NomorUrutHalaqah: nomorHalaqah,
-            MarhalahID: firstRow.marhalahSantri,
-            MusammiID: musammiId,
-            KelasMusammi: firstRow.kelasMusammi,
-          });
-          halaqah = await halaqahResponse.json();
-        }
-
-        if (halaqah) {
-          halaqahMap.set(key, halaqah);
-          
-          // OPTIMISASI: Fetch members untuk halaqah ini SEKALI saja
-          if (!halaqahMembersCache.has(halaqah.HalaqahID)) {
-            const membersResponse = await fetch(`/api/halaqah-members?halaqahId=${halaqah.HalaqahID}`);
-            if (membersResponse.ok) {
-              const existingMembers: HalaqahMembers[] = await membersResponse.json();
-              const memberIds = new Set(existingMembers.map(m => m.SantriID));
-              halaqahMembersCache.set(halaqah.HalaqahID, memberIds);
-            } else {
-              halaqahMembersCache.set(halaqah.HalaqahID, new Set());
-            }
-          }
-        }
-      }
-
-      // Create Santri and link to Halaqah
-      for (const [key, groupRows] of Object.entries(halaqahGroups)) {
-        const halaqah = halaqahMap.get(key);
-        if (!halaqah) continue;
-
-        const existingMemberIds = halaqahMembersCache.get(halaqah.HalaqahID) || new Set();
-
-        for (const row of groupRows) {
-          // Create or find Santri
-          let santriId: string | undefined;
-          const existingSantri = allSantri?.find(
-            s => s.NamaSantri === row.namaSantri && s.MarhalahID === row.marhalahSantri
-          );
-
-          if (existingSantri) {
-            santriId = existingSantri.SantriID;
-          } else {
-            const santriResponse = await apiRequest('POST', '/api/santri', {
-              NamaSantri: row.namaSantri,
-              MarhalahID: row.marhalahSantri,
-              Kelas: row.kelasSantri,
-              Aktif: true,
-            });
-            const newSantri: Santri = await santriResponse.json();
-            santriId = newSantri.SantriID;
-          }
-
-          // Link Santri to Halaqah (check duplicate menggunakan cache)
-          if (santriId && !existingMemberIds.has(santriId)) {
-            await apiRequest('POST', '/api/halaqah-members', {
-              HalaqahID: halaqah.HalaqahID,
-              SantriID: santriId,
-              TanggalMulai: new Date().toISOString().split('T')[0],
-            });
-            // Update cache agar tidak duplikat di iterasi berikutnya
-            existingMemberIds.add(santriId);
-          }
-        }
-      }
+      const response = await apiRequest('POST', '/api/halaqah/batch', batchData);
+      return await response.json();
     },
     onSuccess: () => {
       toast({
