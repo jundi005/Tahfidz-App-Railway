@@ -213,8 +213,8 @@ export type InsertPenambahanHafalan = z.infer<typeof insertPenambahanHafalanSche
 
 export const tasksSchema = z.object({
   TaskID: z.string(),
-  Judul: z.string(),
-  Deskripsi: z.string(),
+  Judul: z.string().min(1, "Judul harus diisi"),
+  Deskripsi: z.string().optional(),
   Tanggal: z.string(), // YYYY-MM-DD
   WaktuPengingat: z.string().optional(), // HH:MM
   AssigneeType: z.enum(["Admin", "Musammi"]),

@@ -52,7 +52,7 @@ export default function Kalender() {
 
   // Fetch tasks
   const { data: tasks, isLoading } = useQuery<Tasks[]>({
-    queryKey: ['/api/tasks', 'ALL'],
+    queryKey: ['/api/tasks'],
   });
 
   // Fetch musammi for assignee options
@@ -63,7 +63,14 @@ export default function Kalender() {
   // Create task mutation
   const createTaskMutation = useMutation({
     mutationFn: async (data: InsertTasks) => {
-      const res = await apiRequest('POST', '/api/tasks', data);
+      // Clean up optional fields - convert empty strings to undefined
+      const cleanedData = {
+        ...data,
+        Deskripsi: data.Deskripsi?.trim() || undefined,
+        WaktuPengingat: data.WaktuPengingat?.trim() || undefined,
+        AssigneeID: data.AssigneeID?.trim() || undefined,
+      };
+      const res = await apiRequest('POST', '/api/tasks', cleanedData);
       return await res.json();
     },
     onSuccess: () => {
