@@ -302,14 +302,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/absensi/santri", async (req, res) => {
     try {
-      const { tanggal, marhalah, waktu } = req.query;
+      const { tanggal, marhalah, waktu, jenis } = req.query;
       if (!tanggal) {
         return res.status(400).json({ error: "tanggal is required" });
       }
       const absensi = await storage.getAbsensiSantri(
         tanggal as string,
         marhalah as string,
-        waktu as string
+        waktu as string,
+        jenis as string
       );
       res.json(absensi);
     } catch (error: any) {
@@ -319,14 +320,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/absensi/musammi", async (req, res) => {
     try {
-      const { tanggal, marhalah, waktu } = req.query;
+      const { tanggal, marhalah, waktu, jenis } = req.query;
       if (!tanggal) {
         return res.status(400).json({ error: "tanggal is required" });
       }
       const absensi = await storage.getAbsensiMusammi(
         tanggal as string,
         marhalah as string,
-        waktu as string
+        waktu as string,
+        jenis as string
       );
       res.json(absensi);
     } catch (error: any) {
@@ -336,13 +338,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/absensi/report", async (req, res) => {
     try {
-      const { tanggalDari, tanggalSampai, marhalah, kelas, peran } = req.query;
+      const { tanggalDari, tanggalSampai, marhalah, kelas, peran, jenis } = req.query;
       const report = await storage.getAbsensiReport(
         tanggalDari as string,
         tanggalSampai as string,
         marhalah as string,
         kelas as string,
-        peran as string
+        peran as string,
+        jenis as string
       );
       res.json(report);
     } catch (error: any) {
@@ -353,11 +356,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========== HAFALAN ==========
   app.get("/api/hafalan", async (req, res) => {
     try {
-      const { bulan, marhalah } = req.query;
+      const { bulan, marhalah, jenis } = req.query;
       if (!bulan) {
         return res.status(400).json({ error: "bulan is required" });
       }
-      const hafalan = await storage.getHafalanBulanan(bulan as string, marhalah as string);
+      const hafalan = await storage.getHafalanBulanan(
+        bulan as string,
+        marhalah as string,
+        jenis as string
+      );
       res.json(hafalan);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -408,11 +415,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========== MUROJAAH ==========
   app.get("/api/murojaah", async (req, res) => {
     try {
-      const { bulan, marhalah } = req.query;
+      const { bulan, marhalah, jenis } = req.query;
       if (!bulan) {
         return res.status(400).json({ error: "bulan is required" });
       }
-      const murojaah = await storage.getMurojaahBulanan(bulan as string, marhalah as string);
+      const murojaah = await storage.getMurojaahBulanan(
+        bulan as string,
+        marhalah as string,
+        jenis as string
+      );
       res.json(murojaah);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -465,7 +476,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const bulan = req.query.bulan as string | undefined;
       const marhalahId = req.query.marhalah as string | undefined;
-      const penambahan = await storage.getPenambahanHafalan(bulan, marhalahId);
+      const jenisHalaqah = req.query.jenis as string | undefined;
+      const penambahan = await storage.getPenambahanHafalan(bulan, marhalahId, jenisHalaqah);
       res.json(penambahan);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
