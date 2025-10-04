@@ -89,7 +89,7 @@ function App() {
                 </main>
                 <footer className="border-t p-4">
                   <p className="text-center text-sm text-muted-foreground" data-testid="text-copyright">
-                    copyright by @lajnah Alquran, All right reserved
+                    Copyright © 2025, @lajnah Alquran. All rights reserved
                   </p>
                 </footer>
               </div>
